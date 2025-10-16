@@ -1,4 +1,4 @@
-# FormMirror 📋
+# FormMirror
 
 **Screenshot-to-Autofill Chrome Extension** — Privacy-first form filling from images
 
@@ -6,20 +6,20 @@ FormMirror lets you fill web forms by simply dropping a screenshot of a previous
 
 ---
 
-## ✨ Features
+## Features
 
-- 🖼️ **Drag & Drop** screenshots or paste from clipboard
-- 🔍 **Local OCR** powered by Tesseract.js (WASM)
-- 🎯 **Smart Matching** using AI-like similarity scoring and synonyms
-- ⚛️ **Framework-Safe** filling works with React, Vue, Angular
-- 🔒 **Privacy-First** — all processing happens on-device
-- 💾 **Optional Rules** — save field mappings (never values) per domain
-- 🎨 **Beautiful UI** with live preview and confidence scores
-- ♿ **Accessible** — follows WCAG label resolution
+- **Drag & Drop** screenshots or paste from clipboard
+- **Local OCR** powered by Tesseract.js (WASM)
+- **Smart Matching** using AI-like similarity scoring and synonyms
+- **Framework-Safe** filling works with React, Vue, Angular
+- **Privacy-First** — all processing happens on-device
+- **Optional Rules** — save field mappings (never values) per domain
+- **Beautiful UI** with live preview and confidence scores
+- **Accessible** — follows WCAG label resolution
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
@@ -56,7 +56,7 @@ This starts Vite in watch mode. Load the `dist/` directory as an unpacked extens
 
 ---
 
-## 📖 How It Works
+## How It Works
 
 ### 1. OCR Processing
 
@@ -105,23 +105,23 @@ Auto-fills at **78%+ confidence**, suggests review at **55-78%**, ignores below.
 
 ---
 
-## 🔒 Privacy Guarantees
+## Privacy Guarantees
 
 ### What We DON'T Do
 
-❌ **No network requests** — Everything runs locally  
-❌ **No analytics or tracking**  
-❌ **No cloud processing**  
-❌ **No value storage** — We only save mapping rules (label → field selector), never your data  
-❌ **No third-party services**
+- **No network requests** — Everything runs locally  
+- **No analytics or tracking**  
+- **No cloud processing**  
+- **No value storage** — We only save mapping rules (label → field selector), never your data  
+- **No third-party services**
 
 ### What We DO
 
-✅ All OCR happens in **WebAssembly** (Tesseract.js)  
-✅ All models and libraries are **bundled locally**  
-✅ Optional per-domain **mapping rules** stored locally (no values)  
-✅ **Content Security Policy** blocks external code  
-✅ **Open source** — audit the code yourself
+- All OCR happens in **WebAssembly** (Tesseract.js)  
+- All models and libraries are **bundled locally**  
+- Optional per-domain **mapping rules** stored locally (no values)  
+- **Content Security Policy** blocks external code  
+- **Open source** — audit the code yourself
 
 ### Threat Model
 
@@ -135,7 +135,7 @@ In development mode, we assert that `fetch()` is never called to external origin
 
 ---
 
-## 🛠️ Configuration
+## Configuration
 
 ### Settings (Future Release)
 
@@ -160,7 +160,7 @@ Clear rules anytime via Settings → Clear All Data.
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ### Run Tests
 
@@ -183,7 +183,7 @@ npm run test:e2e
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
 
@@ -205,7 +205,7 @@ Edit `src/core/synonyms.json`:
 
 ---
 
-## 📜 License
+## License
 
 **Apache-2.0** — See [LICENSE](./LICENSE)
 
@@ -213,7 +213,7 @@ Permissive open-source license. You can use, modify, and distribute this softwar
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **Tesseract.js** — Amazing OCR in the browser
 - **Chrome Extension API** — Solid extension platform
@@ -221,7 +221,7 @@ Permissive open-source license. You can use, modify, and distribute this softwar
 
 ---
 
-## 📧 Support
+## Support
 
 - **Issues**: [GitHub Issues](https://github.com/formmirror/formmirror/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/formmirror/formmirror/discussions)
@@ -229,7 +229,7 @@ Permissive open-source license. You can use, modify, and distribute this softwar
 
 ---
 
-## 🗺️ Roadmap
+## Roadmap
 
 - [ ] Chrome Web Store release
 - [ ] Firefox support (MV3)
@@ -241,7 +241,7 @@ Permissive open-source license. You can use, modify, and distribute this softwar
 
 ---
 
-**Made with ❤️ for privacy-conscious users**
+**Made with care for privacy-conscious users**
 
 *No tracking. No cloud. No compromise.*
 
