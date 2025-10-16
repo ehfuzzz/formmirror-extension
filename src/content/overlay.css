@@ -1,0 +1,26 @@
+/* Global styles injected into page */
+
+.formmirror-target {
+  animation: formmirror-pulse 1.5s ease-in-out;
+}
+
+@keyframes formmirror-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(76, 175, 80, 0);
+  }
+}
+
+.formmirror-dry-run {
+  outline: 2px dashed #4CAF50 !important;
+  outline-offset: 2px !important;
+}
+
+/* Prevent layout shift from outlines */
+.formmirror-target,
+.formmirror-dry-run {
+  box-sizing: border-box;
+}
+
