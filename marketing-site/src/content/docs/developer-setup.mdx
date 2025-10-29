@@ -1,0 +1,42 @@
+# Developer Setup
+
+Ready to contribute or customize FormMirror? Here’s how to get the extension and marketing site running locally.
+
+## Requirements
+
+- Node.js 18+
+- npm or pnpm
+- Chrome 120+
+
+## Extension workflow
+
+```bash
+git clone https://github.com/ehfuzzz/formmirror-extension
+cd formmirror-extension
+npm install
+npm run dev
+```
+
+The extension uses Vite + Preact. `npm run dev` serves a hot-reload build and watches for manifest updates. `npm run build` outputs a Chrome-loadable directory under `dist/`.
+
+## Marketing site workflow
+
+```bash
+cd marketing-site
+npm install
+npm run dev
+```
+
+The marketing site runs React 18, Tailwind CSS, React Router, MDX, and Framer Motion. Build it with `npm run build` to generate static assets suitable for AWS Amplify or S3 + CloudFront.
+
+## Project layout
+
+- `src/` — extension code (Preact)
+- `marketing-site/` — landing page (React + Vite)
+- `serverless/` — sample contact form handler for AWS Lambda
+
+## Contribution tips
+
+- Follow the lint and typecheck scripts before opening a PR.
+- Respect the privacy posture—avoid introducing analytics without an opt-in toggle.
+- Document new macro features in the docs directory.

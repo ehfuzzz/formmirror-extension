@@ -1,0 +1,32 @@
+import { CodeBlock } from '../../components/CodeBlock'
+
+# Getting Started
+
+Welcome to FormMirror—the screenshot-to-autofill Chrome extension that keeps everything on-device.
+
+## Installation
+
+1. Clone the repo from GitHub.
+2. Run the developer commands.
+3. Load the unpacked extension in Chrome.
+
+<CodeBlock code={`git clone https://github.com/ehfuzzz/formmirror-extension\ncd formmirror-extension\nnpm install\nnpm run dev`} language="bash" />
+
+## Load the extension
+
+1. Open `chrome://extensions` in Chrome.
+2. Toggle **Developer mode** in the upper-right corner.
+3. Choose **Load unpacked** and select the `dist` folder produced by `npm run build`.
+4. Pin FormMirror from the extensions toolbar for quick access.
+
+## First run checklist
+
+- Verify screen capture permission is granted when prompted.
+- Open any form in your browser and click the FormMirror icon.
+- Drop in a completed form screenshot to watch the matching flow.
+
+## Supported form types
+
+FormMirror shines on well-structured forms across SaaS dashboards, CRMs, and enterprise portals. Complex, multi-step flows work too—the extension follows focusable elements and accessible names to locate the right fields.
+
+Need help? Head to the [Contact page](/contact) and we’ll guide you through onboarding.

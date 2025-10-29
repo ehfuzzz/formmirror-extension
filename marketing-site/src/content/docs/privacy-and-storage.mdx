@@ -1,0 +1,27 @@
+# Privacy & Storage
+
+FormMirror was designed to uphold privacy-first workflows from day one.
+
+## Local-first architecture
+
+- OCR, matching, and filling run in WebAssembly inside your browser tab.
+- There are no background servers or third-party requests.
+- Content Security Policy blocks remote code execution.
+
+## Data handling
+
+- Screenshots never leave your machine. They’re stored in memory only for the session.
+- Saved rules and macros contain selectors—not values—and live in `chrome.storage.local`.
+- Password and file inputs are skipped automatically.
+
+## Clearing your data
+
+1. Open FormMirror, click **Settings → Privacy**.
+2. Choose **Clear stored rules** or **Reset macro history**.
+3. Chrome will wipe the extension storage immediately.
+
+## Optional analytics
+
+FormMirror ships with analytics disabled. If you opt in, we record anonymized event counts locally and surface them in Macro Studio—never transmitted externally.
+
+Need deeper assurances? Reach out via [Contact](/contact) and we can walk through our threat model.

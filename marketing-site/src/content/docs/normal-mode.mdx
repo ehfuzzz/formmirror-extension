@@ -1,0 +1,35 @@
+# Normal Mode
+
+Normal Mode is the everyday experience in FormMirror. It’s fast, forgiving, and requires only a screenshot.
+
+## Bring in your screenshot
+
+- **Drag & drop:** Drop a PNG or JPG onto the window.
+- **Paste:** Copy from any capture tool and hit `⌘/Ctrl + V`.
+- **File picker:** Click **Upload screenshot** and browse.
+
+## Review panel
+
+FormMirror groups matches by confidence:
+
+- **Auto-fill:** High confidence matches fill instantly.
+- **Review:** Mid confidence matches wait for your confirmation.
+- **Manual:** Low confidence matches display options; click to remap.
+
+Use the inline controls to reassign labels, tweak case sensitivity, or skip fields entirely. Passwords and file inputs are always skipped by default.
+
+## Smart field handling
+
+- Dates and times respect locale formatting and fall back to native pickers.
+- Select inputs fire proper `change` events.
+- Contenteditable regions send synthetic typing events.
+
+## Preprocessing toggles
+
+Tough screenshots? Toggle optional preprocessing:
+
+- **Contrast boost**: Clarify low-contrast scans.
+- **Noise reduction**: Smooth grainy faxes.
+- **Sharpen**: Crisp edges for OCR clarity.
+
+Each change re-runs OCR locally, so experimentation never leaves your machine.
