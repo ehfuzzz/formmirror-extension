@@ -1,0 +1,10 @@
+<svg width="120" height="32" viewBox="0 0 120 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" rx="12" fill="#2A96FF" />
+  <path
+    d="M10.5 10.5H21.5V21.5H18L13.5 16.5V21.5H10.5V10.5Z"
+    fill="white"
+  />
+  <text x="44" y="22" fill="#0A142F" font-family="'Inter', 'Manrope', sans-serif" font-size="18" font-weight="700">
+    FormMirror
+  </text>
+</svg>
