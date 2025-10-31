@@ -147,13 +147,26 @@ function showOverlay(
 
   // Create overlay root
   overlayRoot = document.createElement('div');
-  overlayRoot.id = 'formmirror-overlay';
-  overlayRoot.className = 'formmirror-overlay';
+  overlayRoot.id = 'fm-overlay-host';
+  overlayRoot.className = 'fm-overlay-host';
 
   // Use Shadow DOM to isolate styles
   const shadow = overlayRoot.attachShadow({ mode: 'open' });
 
-  // Add styles
+  const sharedStyles = [
+    'ui/styles/fm-tokens.css',
+    'ui/styles/fm-fonts.css',
+    'ui/styles/fm-base.css',
+    'ui/styles/fm-components.css'
+  ];
+
+  for (const asset of sharedStyles) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = chrome.runtime.getURL(asset);
+    shadow.appendChild(link);
+  }
+
   const style = document.createElement('style');
   style.textContent = getOverlayStyles();
   shadow.appendChild(style);
@@ -176,61 +189,114 @@ function createOverlayContent(
   fields: FieldDescriptor[],
   pairs: OcrPair[]
 ): HTMLElement {
-  const container = document.createElement('div');
-  container.className = 'overlay-container';
+  const root = document.createElement('div');
+  root.id = 'fm-overlay-root';
+  root.className = 'fm-overlay-root';
+
+  const scrim = document.createElement('div');
+  scrim.className = 'fm-overlay-scrim';
+  scrim.addEventListener('click', hideOverlay);
+  root.appendChild(scrim);
+
+  const panel = document.createElement('aside');
+  panel.className = 'fm-overlay-panel';
 
   const header = document.createElement('div');
-  header.className = 'overlay-header';
-  header.innerHTML = `
-    <h3>FormMirror Preview</h3>
-    <p>${mappings.length} fields will be filled</p>
-  `;
+  header.className = 'fm-overlay-panel__header';
+
+  const title = document.createElement('h2');
+  title.className = 'fm-h3';
+  title.textContent = 'Fill preview';
+
+  const subtitle = document.createElement('p');
+  subtitle.className = 'fm-text-muted';
+  subtitle.textContent = `${mappings.length} fields will be filled`;
+
+  header.appendChild(title);
+  header.appendChild(subtitle);
+  panel.appendChild(header);
 
   const list = document.createElement('div');
-  list.className = 'overlay-list';
+  list.className = 'fm-overlay-panel__list';
 
   const fieldMap = new Map(fields.map((f) => [f.id, f]));
   const pairMap = new Map(pairs.map((p) => [p.id, p]));
 
-  for (const mapping of mappings) {
-    const field = fieldMap.get(mapping.fieldId);
-    const pair = pairMap.get(mapping.ocrPairId);
-    if (!field || !pair) continue;
+  if (mappings.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'fm-overlay-empty';
+    empty.textContent = 'No mapped fields yet.';
+    list.appendChild(empty);
+  } else {
+    for (const mapping of mappings) {
+      const field = fieldMap.get(mapping.fieldId);
+      const pair = pairMap.get(mapping.ocrPairId);
+      if (!field || !pair) continue;
 
-    const item = document.createElement('div');
-    item.className = `overlay-item ${mapping.status}`;
-    item.innerHTML = `
-      <div class="item-label">${field.labelText}</div>
-      <div class="item-value">${pair.value}</div>
-      <div class="item-score">${Math.round(mapping.score * 100)}%</div>
-    `;
+      const item = document.createElement('div');
+      item.className = `fm-overlay-item fm-overlay-item--${mapping.status}`;
 
-    // Hover to highlight field
-    item.addEventListener('mouseenter', () => {
-      field.element.style.outline = '3px solid #4CAF50';
-      field.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
+      const meta = document.createElement('div');
+      meta.className = 'fm-overlay-item__meta';
 
-    item.addEventListener('mouseleave', () => {
-      field.element.style.outline = '';
-    });
+      const label = document.createElement('span');
+      label.textContent = field.labelText || field.name || 'Field';
 
-    list.appendChild(item);
+      const badge = document.createElement('span');
+      const badgeStatus = mapping.status === 'auto' ? 'auto' : mapping.status === 'review' ? 'review' : 'ignored';
+      badge.className = `fm-overlay-badge fm-overlay-badge--${badgeStatus}`;
+      badge.textContent =
+        badgeStatus === 'auto' ? 'Auto' : badgeStatus === 'review' ? 'Review' : 'Ignored';
+
+      meta.appendChild(label);
+      meta.appendChild(badge);
+
+      const value = document.createElement('div');
+      value.className = 'fm-overlay-item__value';
+      value.textContent = pair.value;
+
+      const score = document.createElement('div');
+      score.className = 'fm-overlay-item__meta';
+      score.textContent = `Match score: ${Math.round(mapping.score * 100)}%`;
+
+      item.appendChild(meta);
+      item.appendChild(value);
+      item.appendChild(score);
+
+      item.addEventListener('mouseenter', () => {
+        field.element.classList.add('fm-target');
+        field.element.style.outline = mapping.status === 'auto' ? '2px solid #2A96FF' : '2px solid #F59E0B';
+        field.element.style.outlineOffset = '2px';
+        field.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+
+      item.addEventListener('mouseleave', () => {
+        field.element.classList.remove('fm-target');
+        field.element.style.outline = '';
+        field.element.style.outlineOffset = '';
+      });
+
+      list.appendChild(item);
+    }
   }
 
+  panel.appendChild(list);
+
   const actions = document.createElement('div');
-  actions.className = 'overlay-actions';
-  actions.innerHTML = `
-    <button class="btn-close">Close Preview</button>
-  `;
+  actions.className = 'fm-overlay-panel__actions';
 
-  actions.querySelector('.btn-close')?.addEventListener('click', hideOverlay);
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'fm-btn fm-btn--secondary';
+  close.textContent = 'Close preview';
+  close.addEventListener('click', hideOverlay);
 
-  container.appendChild(header);
-  container.appendChild(list);
-  container.appendChild(actions);
+  actions.appendChild(close);
+  panel.appendChild(actions);
 
-  return container;
+  root.appendChild(panel);
+
+  return root;
 }
 
 /**
@@ -243,9 +309,13 @@ function highlightFields(mappings: FillMapping[], fields: FieldDescriptor[]): vo
     const field = fieldMap.get(mapping.fieldId);
     if (!field) continue;
 
-    field.element.classList.add('formmirror-target');
-    
-    const color = mapping.status === 'auto' ? '#4CAF50' : '#FF9800';
+    field.element.classList.add('fm-target');
+
+    const color = mapping.status === 'auto'
+      ? '#2A96FF'
+      : mapping.status === 'review'
+        ? '#F59E0B'
+        : '#9AAAC0';
     field.element.style.outline = `2px solid ${color}`;
     field.element.style.outlineOffset = '2px';
   }
@@ -255,7 +325,7 @@ function highlightFields(mappings: FillMapping[], fields: FieldDescriptor[]): vo
     for (const mapping of mappings) {
       const field = fieldMap.get(mapping.fieldId);
       if (field) {
-        field.element.classList.remove('formmirror-target');
+        field.element.classList.remove('fm-target');
         field.element.style.outline = '';
         field.element.style.outlineOffset = '';
       }
@@ -285,22 +355,22 @@ function showSuccessNotification(count: number): void {
  */
 function showNotification(message: string, type: 'success' | 'error' = 'success'): void {
   const notification = document.createElement('div');
-  notification.className = `formmirror-notification ${type}`;
+  notification.className = `fm-notification ${type}`;
   notification.textContent = message;
-  
+
   Object.assign(notification.style, {
     position: 'fixed',
     top: '20px',
     right: '20px',
     padding: '12px 20px',
-    background: type === 'success' ? '#4CAF50' : '#f44336',
+    background: type === 'success' ? '#1E7ADF' : '#B00020',
     color: 'white',
-    borderRadius: '8px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+    borderRadius: '14px',
+    boxShadow: '0 12px 28px rgba(12,37,82,0.14)',
     zIndex: '999999',
-    fontFamily: 'system-ui, -apple-system, sans-serif',
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
     fontSize: '14px',
-    fontWeight: '500',
+    fontWeight: '600',
   });
 
   document.body.appendChild(notification);
@@ -314,31 +384,31 @@ function showNotification(message: string, type: 'success' | 'error' = 'success'
  * Inject global styles into the page
  */
 function injectGlobalStyles(): void {
-  if (document.getElementById('formmirror-global-styles')) return;
+  if (document.getElementById('fm-global-styles')) return;
 
   const style = document.createElement('style');
-  style.id = 'formmirror-global-styles';
+  style.id = 'fm-global-styles';
   style.textContent = `
-    .formmirror-target {
-      animation: formmirror-pulse 1.5s ease-in-out;
+    .fm-target {
+      animation: fm-highlight-pulse 1.5s ease-in-out;
     }
 
-    @keyframes formmirror-pulse {
+    @keyframes fm-highlight-pulse {
       0%, 100% {
-        box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4);
+        box-shadow: 0 0 0 0 rgba(42, 150, 255, 0.25);
       }
       50% {
-        box-shadow: 0 0 0 10px rgba(76, 175, 80, 0);
+        box-shadow: 0 0 0 10px rgba(42, 150, 255, 0);
       }
     }
 
-    .formmirror-dry-run {
-      outline: 2px dashed #4CAF50 !important;
+    .fm-dry-run {
+      outline: 2px dashed #2A96FF !important;
       outline-offset: 2px !important;
     }
 
-    .formmirror-target,
-    .formmirror-dry-run {
+    .fm-target,
+    .fm-dry-run {
       box-sizing: border-box;
     }
   `;
@@ -351,107 +421,42 @@ function injectGlobalStyles(): void {
  */
 function getOverlayStyles(): string {
   return `
-    .overlay-container {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      width: 350px;
-      max-height: 600px;
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-      z-index: 999999;
-      font-family: system-ui, -apple-system, sans-serif;
-      display: flex;
-      flex-direction: column;
+    :host {
+      all: initial;
     }
 
-    .overlay-header {
-      padding: 16px;
-      border-bottom: 1px solid #eee;
-    }
-
-    .overlay-header h3 {
-      margin: 0 0 4px 0;
-      font-size: 16px;
-      font-weight: 600;
-      color: #333;
-    }
-
-    .overlay-header p {
-      margin: 0;
-      font-size: 13px;
-      color: #666;
-    }
-
-    .overlay-list {
-      flex: 1;
+    .fm-overlay-panel__list {
+      max-height: min(70vh, 520px);
       overflow-y: auto;
-      padding: 12px;
-      max-height: 400px;
     }
 
-    .overlay-item {
-      padding: 10px;
-      margin-bottom: 8px;
-      background: #f9f9f9;
-      border-radius: 6px;
-      border-left: 3px solid #ccc;
-      cursor: pointer;
-      transition: all 0.2s;
+    .fm-overlay-item__value {
+      word-break: break-word;
     }
 
-    .overlay-item:hover {
-      background: #f0f0f0;
-      transform: translateX(2px);
+    .fm-overlay-item--auto {
+      border-left: 4px solid var(--fm-blue-500);
     }
 
-    .overlay-item.auto {
-      border-left-color: #4CAF50;
+    .fm-overlay-item--review {
+      border-left: 4px solid var(--fm-blue-300);
     }
 
-    .overlay-item.review {
-      border-left-color: #FF9800;
+    .fm-overlay-item--ignored {
+      border-left: 4px solid var(--fm-gray-300);
+      opacity: 0.75;
     }
 
-    .item-label {
-      font-size: 12px;
-      color: #666;
-      margin-bottom: 4px;
+    .fm-overlay-panel__actions {
+      justify-content: flex-end;
     }
 
-    .item-value {
-      font-size: 14px;
-      color: #333;
-      font-weight: 500;
-      margin-bottom: 4px;
-    }
-
-    .item-score {
-      font-size: 11px;
-      color: #999;
-    }
-
-    .overlay-actions {
-      padding: 12px;
-      border-top: 1px solid #eee;
-    }
-
-    .btn-close {
-      width: 100%;
-      padding: 10px;
-      background: #667eea;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .btn-close:hover {
-      background: #764ba2;
+    @media (max-width: 640px) {
+      .fm-overlay-panel {
+        right: 12px;
+        left: 12px;
+        width: auto;
+      }
     }
   `;
 }

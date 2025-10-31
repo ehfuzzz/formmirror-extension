@@ -30,44 +30,46 @@ export function ColorSelector({ onColorSelect, onSkip }: ColorSelectorProps) {
   };
 
   return (
-    <div class="color-selector">
-      <div class="color-header">
-        <h3>Color Preferences (Optional)</h3>
-        <p>Specify colors to help identify the text you want to extract</p>
+    <div class="fm-popup__color">
+      <div class="fm-popup__panel-section">
+        <h3 class="fm-h3">Color preferences (optional)</h3>
+        <p class="fm-text-muted">Specify colors to help identify the text you want to extract.</p>
       </div>
 
-      <div class="color-options">
-        <div class="color-option">
-          <label class="color-checkbox">
+      <div class="fm-popup__color-options">
+        <div class="fm-popup__color-option">
+          <label class="fm-popup__color-toggle">
             <input
               type="checkbox"
               checked={useTextColor}
               onChange={(e) => setUseTextColor((e.target as HTMLInputElement).checked)}
             />
-            <span>Text Color</span>
+            <span>Text color</span>
           </label>
-          
+
           {useTextColor && (
-            <div class="color-inputs">
+            <div class="fm-popup__color-inputs">
               <input
                 type="color"
                 value={textColor}
                 onChange={(e) => setTextColor((e.target as HTMLInputElement).value)}
-                class="color-picker"
+                class="fm-popup__color-picker"
+                aria-label="Text color"
               />
               <input
                 type="text"
                 value={textColor}
                 onChange={(e) => setTextColor((e.target as HTMLInputElement).value)}
-                class="color-text"
+                class="fm-input fm-popup__color-value"
                 placeholder="#000000"
               />
-              
-              <div class="predefined-colors">
+
+              <div class="fm-popup__color-swatches">
                 {predefinedColors.map(color => (
                   <button
                     key={color}
-                    class="color-swatch"
+                    type="button"
+                    class="fm-popup__color-swatch"
                     style={{ backgroundColor: color }}
                     onClick={() => setTextColor(color)}
                     title={color}
@@ -78,37 +80,39 @@ export function ColorSelector({ onColorSelect, onSkip }: ColorSelectorProps) {
           )}
         </div>
 
-        <div class="color-option">
-          <label class="color-checkbox">
+        <div class="fm-popup__color-option">
+          <label class="fm-popup__color-toggle">
             <input
               type="checkbox"
               checked={useBackgroundColor}
               onChange={(e) => setUseBackgroundColor((e.target as HTMLInputElement).checked)}
             />
-            <span>Background Color</span>
+            <span>Background color</span>
           </label>
-          
+
           {useBackgroundColor && (
-            <div class="color-inputs">
+            <div class="fm-popup__color-inputs">
               <input
                 type="color"
                 value={backgroundColor}
                 onChange={(e) => setBackgroundColor((e.target as HTMLInputElement).value)}
-                class="color-picker"
+                class="fm-popup__color-picker"
+                aria-label="Background color"
               />
               <input
                 type="text"
                 value={backgroundColor}
                 onChange={(e) => setBackgroundColor((e.target as HTMLInputElement).value)}
-                class="color-text"
+                class="fm-input fm-popup__color-value"
                 placeholder="#ffffff"
               />
-              
-              <div class="predefined-colors">
+
+              <div class="fm-popup__color-swatches">
                 {predefinedColors.map(color => (
                   <button
                     key={color}
-                    class="color-swatch"
+                    type="button"
+                    class="fm-popup__color-swatch"
                     style={{ backgroundColor: color }}
                     onClick={() => setBackgroundColor(color)}
                     title={color}
@@ -120,28 +124,25 @@ export function ColorSelector({ onColorSelect, onSkip }: ColorSelectorProps) {
         </div>
       </div>
 
-      <div class="color-preview">
-        <h4>Preview</h4>
-        <div 
-          class="preview-text"
+      <div class="fm-popup__color-preview">
+        <h4 class="fm-h3">Preview</h4>
+        <div
+          class="fm-popup__color-sample"
           style={{
             color: useTextColor ? textColor : '#000000',
-            backgroundColor: useBackgroundColor ? backgroundColor : 'transparent',
-            padding: '8px',
-            border: '1px solid #ccc',
-            borderRadius: '4px'
+            backgroundColor: useBackgroundColor ? backgroundColor : 'transparent'
           }}
         >
           Sample text with selected colors
         </div>
       </div>
 
-      <div class="color-actions">
-        <button class="btn-secondary" onClick={onSkip}>
-          Skip Colors
+      <div class="fm-popup__color-actions">
+        <button class="fm-btn fm-btn--secondary" type="button" onClick={onSkip}>
+          Skip colors
         </button>
-        <button class="btn-primary" onClick={handleSubmit}>
-          Use These Colors
+        <button class="fm-btn fm-btn--primary" type="button" onClick={handleSubmit}>
+          Use these colors
         </button>
       </div>
     </div>
