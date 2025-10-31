@@ -1,6 +1,5 @@
 import { useCallback, useState, type CSSProperties } from 'react'
-import Highlight, { defaultProps } from 'prism-react-renderer'
-import theme from 'prism-react-renderer/themes/nightOwlLight'
+import { Highlight, themes } from 'prism-react-renderer'
 import { Check, Copy } from 'lucide-react'
 import { cn } from '../utils/cn'
 
@@ -32,7 +31,7 @@ export function CodeBlock({ code, language = 'tsx' }: CodeBlockProps) {
         {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
         {copied ? 'Copied' : 'Copy'}
       </button>
-      <Highlight {...defaultProps} theme={theme} code={code.trim()} language={language as any}>
+      <Highlight theme={themes.nightOwlLight} code={code.trim()} language={language as any}>
         {({ className, style, tokens, getLineProps, getTokenProps }) => (
           <pre
             className={cn('overflow-x-auto rounded-xl p-6 text-sm leading-relaxed', className)}

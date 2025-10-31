@@ -126,9 +126,10 @@ function extractHorizontalPair(line: OcrLine, lineIndex: number): OcrPair | null
     }
   }
 
-  // If gap is significant (> 50px), consider it a label-value separator
+  // If gap is significant, consider it a label-value separator
   const avgWordWidth = words.reduce((sum, w) => sum + w.bbox.width, 0) / words.length;
-  if (maxGap > Math.max(50, avgWordWidth * 2)) {
+  const threshold = Math.max(10, avgWordWidth * 0.8);
+  if (maxGap > threshold) {
     const labelWords = words.slice(0, gapIndex + 1);
     const valueWords = words.slice(gapIndex + 1);
 
