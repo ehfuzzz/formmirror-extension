@@ -37,6 +37,9 @@ function Popup() {
   const [isMacroDragActive, setIsMacroDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const macroFileInputRef = useRef<HTMLInputElement>(null);
+  // Track whether we're inside the macro creation flow to route image inputs correctly
+  const macroFlowActiveRef = useRef<boolean>(false);
+  const isMacroFlowActive = () => macroFlowActiveRef.current === true;
 
   useEffect(() => {
     // Listen for messages from background

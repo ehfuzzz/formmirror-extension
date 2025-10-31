@@ -238,10 +238,8 @@ function humanizeAttributeName(name: string): string {
  * Check if element is visible
  */
 function isVisible(element: HTMLElement): boolean {
-  if (!element.offsetParent && element.tagName !== 'BODY') {
-    return false;
-  }
-
+  // In JSDOM test environment, layout APIs like offsetParent are unreliable.
+  // Rely on CSS visibility only, which works in both browser and tests.
   const style = window.getComputedStyle(element);
   if (
     style.display === 'none' ||

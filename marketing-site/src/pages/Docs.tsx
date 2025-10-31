@@ -48,7 +48,7 @@ export default function Docs() {
                   {route.label}
                 </option>
               ))}
-            </select
+            </select>
           </div>
           <DocSidebar />
           <div className="w-full min-w-0 rounded-2xl border border-blue-100 bg-white p-8 shadow-sm">

@@ -97,35 +97,35 @@ export default function Home() {
         />
         <link rel="canonical" href="https://formmirror.dev" />
         <meta property="og:title" content="FormMirror — Screenshot → Autofill. Instantly." />
-        <script type="application/ld+json">{
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "FormMirror",
-  "operatingSystem": "Chrome",
-  "applicationCategory": "ProductivityApplication",
-  "offers": {
-    "@type": "Offer",
-    "price": "0",
-    "priceCurrency": "USD"
-  },
-  "description": "FormMirror turns completed form screenshots into real keystrokes on any live web form\u2014totally local, private, and framework-safe.",
-  "url": "https://formmirror.dev",
-  "creator": {
-    "@type": "Organization",
-    "name": "FormMirror",
-    "url": "https://formmirror.dev"
-  }
-}</script>
-        <script type="application/ld+json">{
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  "name": "FormMirror",
-  "url": "https://formmirror.dev",
-  "sameAs": [
-    "https://github.com/ehfuzzz/formmirror-extension"
-  ],
-  "description": "Privacy-first screenshot-to-autofill for teams that care about data sovereignty."
-}</script>
+        <script type="application/ld+json">{JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          name: "FormMirror",
+          operatingSystem: "Chrome",
+          applicationCategory: "ProductivityApplication",
+          offers: {
+            "@type": "Offer",
+            price: "0",
+            priceCurrency: "USD",
+          },
+          description:
+            "FormMirror turns completed form screenshots into real keystrokes on any live web form—totally local, private, and framework-safe.",
+          url: "https://formmirror.dev",
+          creator: {
+            "@type": "Organization",
+            name: "FormMirror",
+            url: "https://formmirror.dev",
+          },
+        })}</script>
+        <script type="application/ld+json">{JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "FormMirror",
+          url: "https://formmirror.dev",
+          sameAs: ["https://github.com/ehfuzzz/formmirror-extension"],
+          description:
+            "Privacy-first screenshot-to-autofill for teams that care about data sovereignty.",
+        })}</script>
         <meta
           property="og:description"
           content="FormMirror turns completed form screenshots into real keystrokes on any live web form—totally local, private, and framework-safe."

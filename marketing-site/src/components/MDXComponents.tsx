@@ -1,7 +1,6 @@
-import type { MDXProviderProps } from '@mdx-js/react'
 import { CodeBlock } from './CodeBlock'
 
-export const mdxComponents: MDXProviderProps['components'] = {
+export const mdxComponents: any = {
   h1: (props) => <h1 className="mb-6 text-3xl font-semibold text-ink" {...props} />,
   h2: (props) => <h2 className="mt-10 mb-4 text-2xl font-semibold text-ink" {...props} />,
   h3: (props) => <h3 className="mt-6 mb-3 text-xl font-semibold text-ink" {...props} />,

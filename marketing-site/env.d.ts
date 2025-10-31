@@ -8,3 +8,9 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+declare module '*.mdx' {
+  import * as React from 'react'
+  const MDXComponent: React.ComponentType<any>
+  export default MDXComponent
+}
