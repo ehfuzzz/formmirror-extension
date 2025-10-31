@@ -100,6 +100,21 @@ export function matchPairsToFields(
   };
 }
 
+export function rankFieldsForPair(
+  pair: OcrPair,
+  fields: FieldDescriptor[],
+  customSynonyms?: SynonymDictionary
+): Array<{ field: FieldDescriptor; score: number }> {
+  const synonymDict = { ...SYNONYMS, ...customSynonyms };
+
+  return fields
+    .map((field) => ({
+      field,
+      score: computeSimilarityScore(pair, field, synonymDict),
+    }))
+    .sort((a, b) => b.score - a.score);
+}
+
 /**
  * Compute similarity score between an OCR pair and a field
  * Returns a score from 0 to 1

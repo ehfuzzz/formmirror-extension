@@ -35,13 +35,21 @@ export async function fillFields(
       continue;
     }
 
+    const element = field.element;
+    if (!element) {
+      results.errors.push(`Field ${field.labelText} is not available in this context.`);
+      results.failed++;
+      results.success = false;
+      continue;
+    }
+
     try {
       if (!dryRun) {
-        await fillField(field.element, mapping.value, field.inputType);
+        await fillField(element, mapping.value, field.inputType);
         results.filled++;
       } else {
         // Dry run: just highlight
-        highlightField(field.element, 'dry-run');
+        highlightField(element, 'dry-run');
         results.filled++;
       }
     } catch (error) {
@@ -305,6 +313,9 @@ export function captureOriginalValues(fields: FieldDescriptor[]): Map<string, st
 
   for (const field of fields) {
     const element = field.element;
+    if (!element) {
+      continue;
+    }
     let value = '';
 
     if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
@@ -332,6 +343,9 @@ export function restoreOriginalValues(
     const originalValue = originalValues.get(field.id);
     if (originalValue !== undefined) {
       const element = field.element;
+      if (!element) {
+        continue;
+      }
 
       if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
         setValueAndDispatch(element, originalValue);

@@ -10,10 +10,16 @@ import { saveDomainRules } from '../core/rules';
 import type {
   Message,
   FieldDescriptor,
+  SerializableFieldDescriptor,
   OcrPair,
   FillMapping,
   MatchResult,
+  CandidateFieldsPayload,
+  HighlightFieldPayload,
+  ScrollToFieldPayload,
+  StartElementPickerPayload,
 } from '../core/types';
+import { getRobustSelector, resolveElementBySelector } from '../core/selectors';
 
 // Session state
 let currentFields: FieldDescriptor[] = [];
@@ -22,6 +28,22 @@ let originalValues = new Map<string, string>();
 
 // Overlay state
 let overlayRoot: HTMLDivElement | null = null;
+
+const selectorElementMap = new Map<string, HTMLElement>();
+
+interface PickerState {
+  active: boolean;
+  regionId?: string;
+  hoverElement?: HTMLElement | null;
+  overlay?: HTMLDivElement;
+}
+
+const pickerState: PickerState = {
+  active: false,
+  regionId: undefined,
+  hoverElement: null,
+  overlay: undefined,
+};
 
 /**
  * Initialize content script
@@ -70,7 +92,7 @@ async function handleMessage(message: Message): Promise<any> {
 
     case 'FILL_FIELDS': {
       const { mappings, fields: payloadFields, pairs: payloadPairs, dryRun } = message.payload;
-      
+
       // Use fields/pairs from payload if current ones are empty
       const fieldsToUse = currentFields.length > 0 ? currentFields : (payloadFields || []);
       const pairsToUse = currentPairs.length > 0 ? currentPairs : (payloadPairs || []);
@@ -125,7 +147,46 @@ async function handleMessage(message: Message): Promise<any> {
       currentPairs = [];
       originalValues.clear();
       hideOverlay();
-      
+
+      return { success: true };
+    }
+
+    case 'LIST_CANDIDATE_FIELDS': {
+      if (currentFields.length === 0) {
+        currentFields = discoverFields(false);
+        originalValues = captureOriginalValues(currentFields);
+      }
+
+      selectorElementMap.clear();
+      const summaries = serializeFields(currentFields);
+
+      const payload: CandidateFieldsPayload = { fields: summaries };
+      return {
+        type: 'CANDIDATE_FIELDS',
+        payload,
+      };
+    }
+
+    case 'HIGHLIGHT_FIELD': {
+      const payload = message.payload as HighlightFieldPayload;
+      highlightFieldBySelector(payload.selector, payload.durationMs);
+      return { success: true };
+    }
+
+    case 'SCROLL_TO_FIELD': {
+      const payload = message.payload as ScrollToFieldPayload;
+      scrollFieldIntoView(payload.selector, payload.block);
+      return { success: true };
+    }
+
+    case 'START_ELEMENT_PICKER': {
+      const payload = message.payload as StartElementPickerPayload;
+      startElementPicker(payload.regionId);
+      return { success: true };
+    }
+
+    case 'STOP_ELEMENT_PICKER': {
+      stopElementPicker(false);
       return { success: true };
     }
 
@@ -263,17 +324,18 @@ function createOverlayContent(
       item.appendChild(value);
       item.appendChild(score);
 
+      const targetElement = field.element;
       item.addEventListener('mouseenter', () => {
-        field.element.classList.add('fm-target');
-        field.element.style.outline = mapping.status === 'auto' ? '2px solid #2A96FF' : '2px solid #F59E0B';
-        field.element.style.outlineOffset = '2px';
-        field.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (!targetElement) return;
+        targetElement.classList.add('fm-target');
+        applyOutline(targetElement, mapping.status === 'auto' ? '2px solid #2A96FF' : '2px solid #F59E0B');
+        targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
 
       item.addEventListener('mouseleave', () => {
-        field.element.classList.remove('fm-target');
-        field.element.style.outline = '';
-        field.element.style.outlineOffset = '';
+        if (!targetElement) return;
+        targetElement.classList.remove('fm-target');
+        clearOutline(targetElement);
       });
 
       list.appendChild(item);
@@ -307,27 +369,26 @@ function highlightFields(mappings: FillMapping[], fields: FieldDescriptor[]): vo
 
   for (const mapping of mappings) {
     const field = fieldMap.get(mapping.fieldId);
-    if (!field) continue;
+    const element = field?.element;
+    if (!field || !element) continue;
 
-    field.element.classList.add('fm-target');
+    element.classList.add('fm-target');
 
     const color = mapping.status === 'auto'
       ? '#2A96FF'
       : mapping.status === 'review'
         ? '#F59E0B'
         : '#9AAAC0';
-    field.element.style.outline = `2px solid ${color}`;
-    field.element.style.outlineOffset = '2px';
+    applyOutline(element, `2px solid ${color}`);
   }
 
   // Remove highlights after 3 seconds
   setTimeout(() => {
     for (const mapping of mappings) {
       const field = fieldMap.get(mapping.fieldId);
-      if (field) {
+      if (field?.element) {
         field.element.classList.remove('fm-target');
-        field.element.style.outline = '';
-        field.element.style.outlineOffset = '';
+        clearOutline(field.element);
       }
     }
   }, 3000);
@@ -340,6 +401,257 @@ function hideOverlay(): void {
   if (overlayRoot) {
     overlayRoot.remove();
     overlayRoot = null;
+  }
+}
+
+function serializeFields(fields: FieldDescriptor[]): SerializableFieldDescriptor[] {
+  return fields.map((field) => {
+    let selector = field.selector;
+
+    if ((!selector || selector.length === 0) && field.element) {
+      selector = getRobustSelector(field.element);
+      field.selector = selector;
+    }
+
+    if (selector && field.element) {
+      selectorElementMap.set(selector, field.element);
+    }
+
+    const { element, ...rest } = field;
+    return { ...rest, selector };
+  });
+}
+
+function getElementForSelector(selector: string): HTMLElement | null {
+  if (!selector) return null;
+
+  const cached = selectorElementMap.get(selector);
+  if (cached && document.contains(cached)) {
+    return cached;
+  }
+
+  const found = resolveElementBySelector(selector);
+  if (found instanceof HTMLElement) {
+    selectorElementMap.set(selector, found);
+    return found;
+  }
+
+  return null;
+}
+
+function applyOutline(element: HTMLElement, color: string): void {
+  if (!element.dataset.fmPrevOutline) {
+    element.dataset.fmPrevOutline = element.style.outline || '';
+  }
+  if (!element.dataset.fmPrevOutlineOffset) {
+    element.dataset.fmPrevOutlineOffset = element.style.outlineOffset || '';
+  }
+
+  element.style.outline = color;
+  element.style.outlineOffset = '2px';
+}
+
+function clearOutline(element: HTMLElement): void {
+  if (element.dataset.fmPrevOutline !== undefined) {
+    element.style.outline = element.dataset.fmPrevOutline;
+    delete element.dataset.fmPrevOutline;
+  } else {
+    element.style.outline = '';
+  }
+
+  if (element.dataset.fmPrevOutlineOffset !== undefined) {
+    element.style.outlineOffset = element.dataset.fmPrevOutlineOffset;
+    delete element.dataset.fmPrevOutlineOffset;
+  } else {
+    element.style.outlineOffset = '';
+  }
+
+  element.classList.remove('fm-target', 'fm-picker-hover');
+}
+
+function highlightFieldBySelector(selector: string, durationMs = 1500): void {
+  const element = getElementForSelector(selector);
+  if (!element) return;
+
+  element.classList.add('fm-target');
+  applyOutline(element, '2px solid #2A96FF');
+
+  window.setTimeout(() => {
+    clearOutline(element);
+  }, durationMs);
+}
+
+function scrollFieldIntoView(selector: string, block: ScrollLogicalPosition = 'center'): void {
+  const element = getElementForSelector(selector);
+  if (!element) return;
+
+  element.scrollIntoView({ behavior: 'smooth', block });
+}
+
+function findPickableElement(target: EventTarget | null): HTMLElement | null {
+  if (!(target instanceof HTMLElement)) return null;
+
+  if (isPickableField(target)) {
+    return target;
+  }
+
+  return target.closest(
+    'input:not([type="hidden"]):not([type="file"]):not([type="password"]):not([type="button"]):not([type="submit"]):not([type="reset"]), select, textarea, [contenteditable="true"][role="textbox"]'
+  ) as HTMLElement | null;
+}
+
+function isPickableField(element: HTMLElement): boolean {
+  if (element instanceof HTMLInputElement) {
+    return !['hidden', 'file', 'password', 'button', 'submit', 'reset', 'image'].includes(element.type);
+  }
+
+  if (element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement) {
+    return true;
+  }
+
+  return Boolean(element.isContentEditable && element.getAttribute('role') === 'textbox');
+}
+
+function setPickerHoverElement(element: HTMLElement | null): void {
+  if (pickerState.hoverElement === element) return;
+
+  if (pickerState.hoverElement) {
+    clearOutline(pickerState.hoverElement);
+  }
+
+  pickerState.hoverElement = element;
+
+  if (element) {
+    element.classList.add('fm-picker-hover');
+    applyOutline(element, '2px solid #2A96FF');
+  }
+}
+
+function startElementPicker(regionId: string): void {
+  stopElementPicker(false);
+
+  pickerState.active = true;
+  pickerState.regionId = regionId;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'fm-picker-overlay';
+  overlay.style.position = 'fixed';
+  overlay.style.inset = '0';
+  overlay.style.pointerEvents = 'none';
+  overlay.style.zIndex = '2147483646';
+  overlay.style.background = 'rgba(42, 150, 255, 0.05)';
+  overlay.style.transition = 'opacity 0.2s ease';
+  overlay.style.opacity = '1';
+  document.body.appendChild(overlay);
+  pickerState.overlay = overlay;
+
+  document.addEventListener('mousemove', handlePickerMove, true);
+  document.addEventListener('click', handlePickerClick, true);
+  document.addEventListener('keydown', handlePickerKeydown, true);
+}
+
+function stopElementPicker(notifyPopup: boolean): void {
+  if (!pickerState.active) return;
+
+  document.removeEventListener('mousemove', handlePickerMove, true);
+  document.removeEventListener('click', handlePickerClick, true);
+  document.removeEventListener('keydown', handlePickerKeydown, true);
+
+  if (pickerState.hoverElement) {
+    clearOutline(pickerState.hoverElement);
+  }
+
+  if (pickerState.overlay) {
+    pickerState.overlay.remove();
+  }
+
+  const regionId = pickerState.regionId;
+
+  pickerState.active = false;
+  pickerState.regionId = undefined;
+  pickerState.hoverElement = null;
+  pickerState.overlay = undefined;
+
+  if (notifyPopup && regionId) {
+    chrome.runtime.sendMessage({
+      type: 'STOP_ELEMENT_PICKER',
+      payload: { regionId },
+    }).catch(() => {
+      // Ignore errors when popup is not ready
+    });
+  }
+}
+
+function handlePickerMove(event: MouseEvent): void {
+  if (!pickerState.active) return;
+  const element = findPickableElement(event.target);
+  setPickerHoverElement(element);
+}
+
+function handlePickerClick(event: MouseEvent): void {
+  if (!pickerState.active) return;
+
+  const element = findPickableElement(event.target);
+  if (!element) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const selector = getRobustSelector(element);
+  selectorElementMap.set(selector, element);
+
+  const label =
+    element.getAttribute('aria-label') ||
+    element.getAttribute('placeholder') ||
+    element.getAttribute('name') ||
+    element.id ||
+    element.tagName.toLowerCase();
+
+  const inputType = element instanceof HTMLInputElement
+    ? element.type || 'text'
+    : element instanceof HTMLSelectElement
+      ? 'select'
+      : element instanceof HTMLTextAreaElement
+        ? 'textarea'
+        : element.getAttribute('role') || 'text';
+
+  const attrName = element.getAttribute('name') || element.id || undefined;
+
+  const regionId = pickerState.regionId;
+  stopElementPicker(false);
+
+  if (regionId) {
+    chrome.runtime.sendMessage({
+      type: 'ELEMENT_PICKED',
+      payload: {
+        regionId,
+        selector,
+        labelText: label || undefined,
+        inputType,
+        attrName,
+      },
+    }).catch(() => {
+      // Ignore send errors when popup unavailable
+    });
+  }
+}
+
+function handlePickerKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape') {
+    const regionId = pickerState.regionId;
+    stopElementPicker(false);
+    if (regionId) {
+      chrome.runtime.sendMessage({
+        type: 'STOP_ELEMENT_PICKER',
+        payload: { regionId },
+      }).catch(() => {
+        // Ignore send errors when popup unavailable
+      });
+    }
+    event.preventDefault();
+    event.stopPropagation();
   }
 }
 

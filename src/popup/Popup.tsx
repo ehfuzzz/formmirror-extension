@@ -4,13 +4,21 @@
 
 import { render } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
-import type { OcrPair, FieldDescriptor, FillMapping, Macro, ExtractionRegion } from '../core/types';
+import type {
+  OcrPair,
+  FieldDescriptor,
+  FillMapping,
+  Macro,
+  ExtractionRegion,
+  MacroFieldMapping,
+} from '../core/types';
 import { getCloudOcrEngine } from '../core/ocr-cloud';
 import { extractKeyValuePairs } from '../core/kv-extract';
 import { loadMacros, saveMacro, generateMacroId } from '../core/macro-storage';
 import { RegionSelector } from '../components/RegionSelector';
 import { ColorSelector } from '../components/ColorSelector';
 import { SmartExtraction } from '../components/SmartExtraction';
+import { FieldMapper } from '../components/FieldMapper';
 import '../ui/styles/fm-tokens.css';
 import '../ui/styles/fm-fonts.css';
 import '../ui/styles/fm-base.css';
@@ -214,7 +222,7 @@ function Popup() {
     setMacroCreationStage('fields');
   };
 
-  const handleMacroComplete = async () => {
+  const handleMacroComplete = async (fieldMappings: MacroFieldMapping[]) => {
     try {
       const macro: Macro = {
         id: generateMacroId(),
@@ -224,7 +232,8 @@ function Popup() {
         useCount: 0,
         trainingScreenshot: macroTrainingImage,
         extractionRegions: macroExtractionRegions,
-        targetFields: [] // TODO: Implement field mapping
+        targetFields: [],
+        fieldMappings,
       };
 
       await saveMacro(macro);
@@ -579,14 +588,14 @@ function Popup() {
                 )}
 
                 {macroCreationStage === 'fields' && (
-                  <div class="fm-popup__panel-section fm-popup__panel-section--center">
-                    <h3 class="fm-h3">Map to form fields</h3>
-                    <p class="fm-text-muted">
-                      Connect extracted regions to on-page inputs. Mapping automation is coming soon—manual mapping remains available.
-                    </p>
-                    <button class="fm-btn fm-btn--primary" type="button" onClick={handleMacroComplete}>
-                      Create Macro
-                    </button>
+                  <div class="fm-popup__panel-section">
+                    <FieldMapper
+                      regions={macroExtractionRegions}
+                      onBack={() => setMacroCreationStage('smart')}
+                      onSave={(mappings) => {
+                        handleMacroComplete(mappings);
+                      }}
+                    />
                   </div>
                 )}
               </div>
