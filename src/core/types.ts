@@ -70,7 +70,7 @@ export interface OcrPair {
 
 export interface FieldDescriptor {
   id: string; // unique runtime id
-  element: HTMLElement; // the actual DOM element
+  element?: HTMLElement; // the actual DOM element (content script context only)
   labelText: string; // normalized human-readable label
   rawLabels: string[]; // all source texts used to derive label
   type: string; // input type attribute
@@ -81,7 +81,10 @@ export interface FieldDescriptor {
   placeholder?: string;
   name?: string;
   required: boolean;
+  selector?: string; // robust CSS selector for the element
 }
+
+export type SerializableFieldDescriptor = Omit<FieldDescriptor, 'element'>;
 
 // ============================================================================
 // Matching & Mapping Types
@@ -113,6 +116,16 @@ export interface MatchResult {
 // Macro System Types
 // ============================================================================
 
+export interface MacroFieldMapping {
+  regionId: string;
+  selector: string;
+  fieldHints?: {
+    label?: string;
+    inputType?: string;
+    attrName?: string;
+  };
+}
+
 export interface Macro {
   id: string;
   name: string;
@@ -120,12 +133,24 @@ export interface Macro {
   createdAt: number;
   lastUsed?: number;
   useCount: number;
-  
+
   // Training data
   trainingScreenshot: string; // base64 image
   extractionRegions: ExtractionRegion[];
   targetFields: TargetField[];
+  fieldMappings?: MacroFieldMapping[];
 }
+
+export type PatternPresetKey =
+  | 'everything'
+  | 'email'
+  | 'us_phone'
+  | 'date_iso'
+  | 'zip_us'
+  | 'url'
+  | 'uppercase6'
+  | 'number'
+  | 'custom';
 
 export interface ExtractionRegion {
   id: string;
@@ -133,6 +158,8 @@ export interface ExtractionRegion {
   bbox: Rect; // Coordinates in the training screenshot
   color?: string; // Optional color hint for visual matching
   textPattern?: string; // Optional regex pattern for validation
+  textPatternPreset?: PatternPresetKey; // Selected preset for pattern matching
+  textPatternCustom?: string; // Last custom regex entered by the user
   position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center'; // Position preference
   tolerance?: number; // Color matching tolerance (0-1)
 }
@@ -234,7 +261,14 @@ export type MessageType =
   | 'LOAD_MACROS'
   | 'DELETE_MACRO'
   | 'EXECUTE_MACRO'
-  | 'MACRO_EXECUTION_COMPLETE';
+  | 'MACRO_EXECUTION_COMPLETE'
+  | 'LIST_CANDIDATE_FIELDS'
+  | 'CANDIDATE_FIELDS'
+  | 'HIGHLIGHT_FIELD'
+  | 'SCROLL_TO_FIELD'
+  | 'START_ELEMENT_PICKER'
+  | 'STOP_ELEMENT_PICKER'
+  | 'ELEMENT_PICKED';
 
 export interface Message<T = any> {
   type: MessageType;
@@ -270,6 +304,32 @@ export interface FieldsDiscoveredPayload {
 export interface FillFieldsPayload {
   mappings: FillMapping[];
   dryRun?: boolean;
+}
+
+export interface HighlightFieldPayload {
+  selector: string;
+  durationMs?: number;
+}
+
+export interface ScrollToFieldPayload {
+  selector: string;
+  block?: ScrollLogicalPosition;
+}
+
+export interface CandidateFieldsPayload {
+  fields: SerializableFieldDescriptor[];
+}
+
+export interface StartElementPickerPayload {
+  regionId: string;
+}
+
+export interface ElementPickedPayload {
+  regionId: string;
+  selector: string;
+  labelText?: string;
+  inputType?: string;
+  attrName?: string;
 }
 
 export interface FillCompletePayload {

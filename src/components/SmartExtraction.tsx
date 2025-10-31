@@ -4,7 +4,12 @@
  */
 
 import { useState } from 'preact/hooks';
-import type { ExtractionRegion } from '../core/types';
+import type { ExtractionRegion, PatternPresetKey } from '../core/types';
+import {
+  PATTERN_PRESET_OPTIONS,
+  getPresetKeyFromPattern,
+  resolvePatternSelection
+} from '../core/pattern-presets';
 
 interface SmartExtractionProps {
   regions: Array<{ rect: any; name: string; id: string }>;
@@ -40,6 +45,8 @@ export function SmartExtraction({ regions, onConfigure, onBack }: SmartExtractio
       name: regions.find(r => r.id === regionId)?.name || '',
       bbox: regions.find(r => r.id === regionId)?.rect || { x: 0, y: 0, width: 0, height: 0 },
       textPattern: undefined,
+      textPatternPreset: undefined,
+      textPatternCustom: undefined,
       color: undefined,
       position: undefined,
       tolerance: undefined
@@ -56,6 +63,17 @@ export function SmartExtraction({ regions, onConfigure, onBack }: SmartExtractio
       <div class="fm-popup__smart-list">
         {regions.map(region => {
           const config = getRegionConfig(region.id);
+          const patternSelectId = `fm-pattern-${region.id}`;
+          const patternCustomId = `fm-pattern-custom-${region.id}`;
+          const presetKey: PatternPresetKey = config.textPatternPreset ?? getPresetKeyFromPattern(config.textPattern);
+          const storedCustom = config.textPatternCustom ?? (presetKey === 'custom' ? config.textPattern ?? '' : '');
+          const resolution = resolvePatternSelection(presetKey, storedCustom);
+          const showCustom = presetKey === 'custom';
+          const customHint = showCustom && !resolution.isValid
+            ? resolution.reason === 'empty'
+              ? 'Custom pattern is empty. Using Everything.'
+              : 'Invalid pattern, using Everything.'
+            : null;
 
           return (
             <div key={region.id} class="fm-card fm-popup__smart-region">
@@ -66,30 +84,52 @@ export function SmartExtraction({ regions, onConfigure, onBack }: SmartExtractio
 
               <div class="fm-popup__smart-controls">
                 <div class="fm-popup__smart-group">
-                  <label class="fm-popup__color-toggle">
-                    <input
-                      type="checkbox"
-                      checked={!!config.textPattern}
+                  <div class="fm-popup__smart-pattern">
+                    <label class="fm-label" for={patternSelectId}>Pattern matching</label>
+                    <select
+                      id={patternSelectId}
+                      class="fm-select"
+                      value={presetKey}
                       onChange={(e) => {
-                        const pattern = (e.target as HTMLInputElement).checked ? '.*' : undefined;
-                        handleRegionConfigure(region.id, { textPattern: pattern });
-                      }}
-                    />
-                    Pattern matching
-                  </label>
-                  {config.textPattern && (
-                    <input
-                      type="text"
-                      value={config.textPattern}
-                      onChange={(e) => {
+                        const nextPreset = (e.target as HTMLSelectElement).value as PatternPresetKey;
+                        const nextResolution = resolvePatternSelection(nextPreset, storedCustom);
                         handleRegionConfigure(region.id, {
-                          textPattern: (e.target as HTMLInputElement).value
+                          textPatternPreset: nextPreset,
+                          textPatternCustom: storedCustom,
+                          textPattern: nextResolution.pattern
                         });
                       }}
-                      placeholder="Regex pattern (e.g., \\$\\d+\\.\\d{2})"
-                      class="fm-input"
-                    />
-                  )}
+                    >
+                      {PATTERN_PRESET_OPTIONS.map((option) => (
+                        <option key={option.key} value={option.key}>{option.label}</option>
+                      ))}
+                    </select>
+                    {showCustom && (
+                      <div class="fm-popup__smart-pattern-custom">
+                        <label class="fm-label" for={patternCustomId}>Custom regex</label>
+                        <input
+                          id={patternCustomId}
+                          type="text"
+                          class="fm-input"
+                          value={storedCustom}
+                          onInput={(e) => {
+                            const value = (e.target as HTMLInputElement).value;
+                            const nextResolution = resolvePatternSelection('custom', value);
+                            handleRegionConfigure(region.id, {
+                              textPatternPreset: 'custom',
+                              textPatternCustom: value,
+                              textPattern: nextResolution.pattern
+                            });
+                          }}
+                          placeholder="Enter custom regex (e.g., ^[A-Z]{2}\\d{4}$)"
+                        />
+                        {customHint && (
+                          <p class="fm-popup__smart-hint">{customHint}</p>
+                        )}
+                      </div>
+                    )}
+                    <p class="fm-popup__smart-hint">Use ^ and $ to match the whole value. Patterns are regular expressions.</p>
+                  </div>
                 </div>
 
                 <div class="fm-popup__smart-group">

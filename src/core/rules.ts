@@ -156,7 +156,7 @@ function findFieldBySelectors(
     try {
       const element = document.querySelector(selector);
       if (element) {
-        const field = fields.find((f) => f.element === element);
+        const field = fields.find((f) => f.element && f.element === element);
         if (field) return field;
       }
     } catch {
@@ -196,7 +196,7 @@ function generateSelectors(field: FieldDescriptor): string[] {
   }
 
   // Type + name
-  if (field.type && field.attrs.name) {
+  if (field.type && field.attrs.name && field.element) {
     selectors.push(`${field.element.tagName.toLowerCase()}[type="${field.type}"][name="${CSS.escape(field.attrs.name)}"]`);
   }
 

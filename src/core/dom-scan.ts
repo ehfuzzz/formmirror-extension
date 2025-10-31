@@ -5,6 +5,7 @@
  */
 
 import type { FieldDescriptor, FieldKind, Rect } from './types';
+import { getRobustSelector } from './selectors';
 
 /**
  * Discover all fillable fields on the current page
@@ -80,6 +81,8 @@ function buildFieldDescriptor(element: HTMLElement, index: number): FieldDescrip
     if (element.getAttribute('aria-label')) attrs['aria-label'] = element.getAttribute('aria-label')!;
     if (element.getAttribute('aria-labelledby')) attrs['aria-labelledby'] = element.getAttribute('aria-labelledby')!;
 
+    const selector = getRobustSelector(element);
+
     return {
       id: `field-${index}`,
       element,
@@ -93,6 +96,7 @@ function buildFieldDescriptor(element: HTMLElement, index: number): FieldDescrip
       placeholder: element.getAttribute('placeholder') || undefined,
       name: element.getAttribute('name') || undefined,
       required: element.hasAttribute('required'),
+      selector,
     };
   } catch (error) {
     console.warn('[DOM Scan] Failed to build descriptor for element:', element, error);
