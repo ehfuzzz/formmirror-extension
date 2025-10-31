@@ -1,0 +1,58 @@
+:root {
+  /* Backgrounds */
+  --fm-bg-page: #FFFFFF;
+  --fm-bg-subtle: #F8FAFD;
+  --fm-bg-card: #FFFFFF;
+
+  /* Text */
+  --fm-text-primary: #0A142F;
+  --fm-text-secondary: #4B5B7C;
+  --fm-text-muted: #6B7C99;
+
+  /* Blues (brand) */
+  --fm-blue-50:  #EFF7FF;
+  --fm-blue-100: #DFF0FF;
+  --fm-blue-200: #B9DEFF;
+  --fm-blue-300: #8CC7FF;
+  --fm-blue-400: #5BAEFF;
+  --fm-blue-500: #2A96FF;
+  --fm-blue-600: #1E7ADF;
+  --fm-blue-700: #175FB1;
+  --fm-blue-800: #124A8A;
+  --fm-blue-900: #0E3A6B;
+
+  /* Greys (cool) */
+  --fm-gray-50:  #F8FAFD;
+  --fm-gray-100: #F2F6FA;
+  --fm-gray-200: #E6EEF5;
+  --fm-gray-300: #D5E0EA;
+  --fm-gray-400: #B8C7D9;
+  --fm-gray-500: #9AAAC0;
+
+  --fm-border: #E6EEF5;
+  --fm-ring:   #2A96FF;
+  --fm-radius-sm: 10px;
+  --fm-radius-md: 14px;
+  --fm-radius-lg: 16px;
+  --fm-shadow-sm: 0 1px 2px rgba(12, 37, 82, 0.06);
+  --fm-shadow-md: 0 6px 16px rgba(12, 37, 82, 0.08);
+  --fm-shadow-lg: 0 12px 28px rgba(12, 37, 82, 0.14);
+  --fm-space-1: 4px;
+  --fm-space-2: 8px;
+  --fm-space-3: 12px;
+  --fm-space-4: 16px;
+  --fm-space-6: 24px;
+  --fm-space-8: 32px;
+
+  --fm-focus-ring: 0 0 0 2px var(--fm-ring);
+  --fm-focus-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

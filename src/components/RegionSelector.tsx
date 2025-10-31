@@ -166,51 +166,54 @@ export function RegionSelector({ imageSrc, onRegionSelect, onComplete }: RegionS
   };
 
   return (
-    <div class="region-selector">
-      <div class="selector-header">
-        <h3>Select Data Regions</h3>
-        <p>Click and drag to select areas containing the data you want to extract</p>
+    <div class="fm-popup__region">
+      <div class="fm-popup__panel-section">
+        <h3 class="fm-h3">Select data regions</h3>
+        <p class="fm-text-muted">Click and drag to select areas containing the data you want to extract.</p>
       </div>
 
-      <div class="image-container">
+      <div class="fm-popup__region-canvas">
         <img
           ref={imageRef}
           src={imageSrc}
-          style={{ display: 'none' }}
+          class="fm-popup__region-image"
           onLoad={() => {
-            // Trigger redraw when image loads
             setCurrentSelection(prev => ({ ...prev }));
           }}
+          alt="Macro training"
         />
         <canvas
           ref={canvasRef}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          style={{ 
-            border: '1px solid #ccc',
-            cursor: 'crosshair',
-            maxWidth: '100%',
-            height: 'auto'
-          }}
+          class="fm-popup__region-surface"
         />
       </div>
 
       {showNameInput && (
-        <div class="name-input-overlay">
-          <div class="name-input-modal">
-            <h4>Name this region</h4>
+        <div class="fm-popup__region-overlay" role="dialog" aria-modal="true">
+          <div class="fm-card fm-popup__region-modal">
+            <h4 class="fm-h3">Name this region</h4>
             <input
               type="text"
               value={regionName}
               onInput={(e) => setRegionName((e.target as HTMLInputElement).value)}
+              class="fm-input"
               placeholder="e.g., Price, Volume, Date"
               autoFocus
             />
-            <div class="name-input-buttons">
-              <button onClick={() => setShowNameInput(false)}>Cancel</button>
-              <button onClick={handleRegionNameSubmit} disabled={!regionName.trim()}>
-                Add Region
+            <div class="fm-popup__region-modal-actions">
+              <button type="button" class="fm-btn fm-btn--secondary" onClick={() => setShowNameInput(false)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="fm-btn fm-btn--primary"
+                onClick={handleRegionNameSubmit}
+                disabled={!regionName.trim()}
+              >
+                Add region
               </button>
             </div>
           </div>
@@ -218,36 +221,40 @@ export function RegionSelector({ imageSrc, onRegionSelect, onComplete }: RegionS
       )}
 
       {selections.length > 0 && (
-        <div class="selections-list">
-          <h4>Selected Regions ({selections.length})</h4>
+        <div class="fm-popup__region-list">
+          <h4 class="fm-h3">Selected regions ({selections.length})</h4>
           {selections.map((selection) => (
-            <div key={selection.id} class="selection-item">
-              <span class="selection-name">{selection.name}</span>
-              <span class="selection-coords">
-                {Math.round(selection.rect.x)}, {Math.round(selection.rect.y)} - 
-                {Math.round(selection.rect.width)}×{Math.round(selection.rect.height)}
-              </span>
-              <button 
-                class="remove-btn"
+            <div key={selection.id} class="fm-card fm-popup__region-item">
+              <div class="fm-popup__region-item-main">
+                <span class="fm-popup__region-name">{selection.name}</span>
+                <span class="fm-popup__region-meta">
+                  {Math.round(selection.rect.x)}, {Math.round(selection.rect.y)} · {Math.round(selection.rect.width)}×{Math.round(selection.rect.height)}
+                </span>
+              </div>
+              <button
+                type="button"
+                class="fm-btn fm-btn--link fm-popup__region-remove"
                 onClick={() => removeSelection(selection.id)}
               >
-                ✕
+                Remove
               </button>
             </div>
           ))}
         </div>
       )}
 
-      <div class="selector-actions">
-        <button 
-          class="btn-secondary"
+      <div class="fm-popup__region-actions">
+        <button
+          type="button"
+          class="fm-btn fm-btn--secondary"
           onClick={() => setSelections([])}
           disabled={selections.length === 0}
         >
-          Clear All
+          Clear all
         </button>
-        <button 
-          class="btn-primary"
+        <button
+          type="button"
+          class="fm-btn fm-btn--primary"
           onClick={onComplete}
           disabled={selections.length === 0}
         >
