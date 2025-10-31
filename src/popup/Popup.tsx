@@ -3,7 +3,7 @@
  */
 
 import { render } from 'preact';
-import { useState, useEffect, useRef } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type {
   OcrPair,
   FieldDescriptor,
@@ -14,7 +14,12 @@ import type {
 } from '../core/types';
 import { getCloudOcrEngine } from '../core/ocr-cloud';
 import { extractKeyValuePairs } from '../core/kv-extract';
-import { loadMacros, saveMacro, generateMacroId } from '../core/macro-storage';
+import {
+  loadMacros,
+  saveMacro,
+  generateMacroId,
+  updateMacroUsage,
+} from '../core/macro-storage';
 import { RegionSelector } from '../components/RegionSelector';
 import { ColorSelector } from '../components/ColorSelector';
 import { SmartExtraction } from '../components/SmartExtraction';
@@ -24,62 +29,134 @@ import '../ui/styles/fm-fonts.css';
 import '../ui/styles/fm-base.css';
 import '../ui/styles/fm-components.css';
 import './popup.css';
+import type { MacroStage, NormalStage, PopupMode, StudioStage } from './types';
+import { loadActiveMode, persistActiveMode } from './mode-storage';
+
+const MODE_TABS: Array<{ id: PopupMode; label: string; emoji: string }> = [
+  { id: 'normal', label: 'Normal Mode', emoji: '📋' },
+  { id: 'macro', label: 'Macro Mode', emoji: '⚡' },
+  { id: 'studio', label: 'Macro Studio', emoji: '🛠️' },
+];
+
+interface MacroRunSummary {
+  macroId: string;
+  totalSelectors: number;
+  resolvedSelectors: number;
+  unresolvedSelectors: string[];
+}
 
 function Popup() {
-  const [stage, setStage] = useState<'upload' | 'processing' | 'review' | 'filling' | 'done' | 'macro-create' | 'macro-select'>('upload');
+  const [activeMode, setActiveMode] = useState<PopupMode>('normal');
+  const [normalStage, setNormalStage] = useState<NormalStage>('upload');
+  const [macroStage, setMacroStage] = useState<MacroStage>('list');
+  const [studioStage, setStudioStage] = useState<StudioStage>('upload');
+
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState('');
   const [pairs, setPairs] = useState<OcrPair[]>([]);
   const [fields, setFields] = useState<FieldDescriptor[]>([]);
   const [mappings, setMappings] = useState<FillMapping[]>([]);
   const [error, setError] = useState<string>('');
+
   const [macros, setMacros] = useState<Macro[]>([]);
-  // const [selectedMacro, setSelectedMacro] = useState<Macro | null>(null);
-  const [macroMode, setMacroMode] = useState<'normal' | 'macro'>('normal');
-  const [macroCreationStage, setMacroCreationStage] = useState<'upload' | 'regions' | 'colors' | 'smart' | 'fields'>('upload');
+  const [selectedMacro, setSelectedMacro] = useState<Macro | null>(null);
+  const [macroRunSummary, setMacroRunSummary] = useState<MacroRunSummary | null>(null);
+  const [macroPreviewResolved, setMacroPreviewResolved] = useState<Record<string, boolean> | null>(null);
+  const [macroPreviewLoading, setMacroPreviewLoading] = useState(false);
+
   const [macroTrainingImage, setMacroTrainingImage] = useState<string>('');
   const [macroRegions, setMacroRegions] = useState<Array<{ rect: any; name: string; id: string }>>([]);
-  // const [macroColors, setMacroColors] = useState<{ textColor: string; backgroundColor: string }>({ textColor: '', backgroundColor: '' });
   const [macroExtractionRegions, setMacroExtractionRegions] = useState<ExtractionRegion[]>([]);
-  const [isDragActive, setIsDragActive] = useState(false);
-  const [isMacroDragActive, setIsMacroDragActive] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const macroFileInputRef = useRef<HTMLInputElement>(null);
-  // Track whether we're inside the macro creation flow to route image inputs correctly
-  const macroFlowActiveRef = useRef<boolean>(false);
-  const isMacroFlowActive = () => macroFlowActiveRef.current === true;
+
+  const [isNormalDragActive, setIsNormalDragActive] = useState(false);
+  const [isStudioDragActive, setIsStudioDragActive] = useState(false);
+
+  const normalFileInputRef = useRef<HTMLInputElement>(null);
+  const studioFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Listen for messages from background
-    chrome.runtime.onMessage.addListener((message) => {
+    loadActiveMode().then(setActiveMode);
+  }, []);
+
+  useEffect(() => {
+    persistActiveMode(activeMode);
+  }, [activeMode]);
+
+  useEffect(() => {
+    const listener = (message: any) => {
       if (message.type === 'OCR_PROGRESS') {
         setProgress(message.payload.progress);
         setStatusText(message.payload.status);
       } else if (message.type === 'FIELDS_DISCOVERED') {
         setFields(message.payload.fields);
       }
-    });
+    };
+
+    chrome.runtime.onMessage.addListener(listener);
+    return () => {
+      chrome.runtime.onMessage.removeListener(listener);
+    };
   }, []);
 
   useEffect(() => {
-    if (stage !== 'macro-create' && macroFlowActiveRef.current) {
-      console.log('[Macro] Stage changed away from macro-create - resetting macro flow flag');
-      macroFlowActiveRef.current = false;
+    loadMacros().then(setMacros);
+  }, []);
+
+  useEffect(() => {
+    if (normalStage === 'review' && pairs.length > 0 && fields.length > 0) {
+      import('../core/match').then(({ matchPairsToFields, explainMatch }) => {
+        const result = matchPairsToFields(pairs, fields);
+        result.mappings.forEach((mapping, idx) => {
+          const field = fields.find((f) => f.id === mapping.fieldId);
+          const pair = pairs.find((p) => p.id === mapping.ocrPairId);
+          if (field && pair) {
+            const reasons = explainMatch(pair, field);
+            console.log(`[Popup] Mapping ${idx + 1}:`, {
+              ocrLabel: pair.rawLabel,
+              ocrValue: pair.value,
+              fieldLabel: field.labelText,
+              score: mapping.score.toFixed(3),
+              status: mapping.status,
+              reasons: reasons.join(', '),
+            });
+          }
+        });
+        setMappings(result.mappings);
+      });
     }
-  }, [stage]);
+  }, [normalStage, pairs, fields]);
 
-  const handleFileSelect = async (file: File) => {
-    console.log('[FileSelect] File selected:', file.name, file.type);
-    console.log('[FileSelect] Current macroMode:', macroMode);
-    console.log('[FileSelect] Current stage:', stage);
-
-    // If the user is in the macro creation flow, route the file to the macro handler instead
-    if (isMacroFlowActive() || macroMode === 'macro') {
-      console.log('[FileSelect] Detected macro creation context - forwarding to macro handler');
-      await handleMacroTrainingImage(file);
-      return;
+  useEffect(() => {
+    if (activeMode === 'macro') {
+      setMacroStage('list');
+      setMacroRunSummary(null);
+      setSelectedMacro(null);
+      setMacroPreviewResolved(null);
+      setMacroPreviewLoading(false);
     }
+  }, [activeMode]);
 
+  useEffect(() => {
+    if (activeMode === 'normal' && normalStage === 'upload') {
+      const handle = (event: ClipboardEvent) => {
+        void handleNormalPaste(event);
+      };
+      document.addEventListener('paste', handle);
+      return () => document.removeEventListener('paste', handle);
+    }
+  }, [activeMode, normalStage]);
+
+  useEffect(() => {
+    if (activeMode === 'studio' && studioStage === 'upload') {
+      const handle = (event: ClipboardEvent) => {
+        void handleStudioPaste(event);
+      };
+      document.addEventListener('paste', handle);
+      return () => document.removeEventListener('paste', handle);
+    }
+  }, [activeMode, studioStage]);
+
+  const handleNormalFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       setError('Please select an image file');
       return;
@@ -88,204 +165,128 @@ function Popup() {
     const reader = new FileReader();
     reader.onload = async (e) => {
       const imageData = e.target?.result as string;
-      console.log('[FileSelect] About to process image with OCR');
       await processImage(imageData);
     };
     reader.readAsDataURL(file);
   };
 
-  const handleDrop = (e: DragEvent) => {
+  const handleNormalDrop = (e: DragEvent) => {
     e.preventDefault();
-    setIsDragActive(false);
-    const file = e.dataTransfer?.files[0];
+    setIsNormalDragActive(false);
+    if (activeMode !== 'normal' || normalStage !== 'upload') return;
+    const file = e.dataTransfer?.files?.[0];
     if (file) {
-      // Always use macro training image handler when in macro mode
-      if (macroMode === 'macro' || isMacroFlowActive()) {
-        handleMacroTrainingImage(file);
-      } else {
-        handleFileSelect(file);
-      }
+      void handleNormalFile(file);
     }
   };
 
-  const handleDragOver = (e: DragEvent) => {
+  const handleNormalDragOver = (e: DragEvent) => {
     e.preventDefault();
-    if (!isDragActive) {
-      setIsDragActive(true);
+    if (activeMode !== 'normal' || normalStage !== 'upload') return;
+    if (!isNormalDragActive) {
+      setIsNormalDragActive(true);
     }
   };
 
-  const handleDragLeave = () => {
-    setIsDragActive(false);
+  const handleNormalDragLeave = () => {
+    setIsNormalDragActive(false);
   };
 
-  const handleMacroDrop = (e: DragEvent) => {
-    e.preventDefault();
-    setIsMacroDragActive(false);
-    const file = e.dataTransfer?.files[0];
-    if (file) {
-      handleMacroTrainingImage(file);
-    }
-  };
-
-  const handleMacroDragOver = (e: DragEvent) => {
-    e.preventDefault();
-    if (!isMacroDragActive) {
-      setIsMacroDragActive(true);
-    }
-  };
-
-  const handleMacroDragLeave = () => {
-    setIsMacroDragActive(false);
-  };
-
-  const handlePaste = async (event: ClipboardEvent) => {
-    console.log('[Paste] Paste event triggered');
-    console.log('[Paste] Current macroMode:', macroMode);
-    console.log('[Paste] Current stage:', stage);
-    console.log('[Paste] Current macroCreationStage:', macroCreationStage);
-    
-    event.preventDefault();
+  const handleNormalPaste = async (event: ClipboardEvent) => {
+    if (activeMode !== 'normal' || normalStage !== 'upload') return false;
     const items = event.clipboardData?.items;
-    
-    if (!items) {
-      console.log('[Paste] No clipboard items found');
-      return;
-    }
-    
+    if (!items) return false;
+
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       if (item.type.indexOf('image') !== -1) {
         const file = item.getAsFile();
         if (file) {
-          console.log('[Paste] Image file found:', file.name, file.type);
-          
-          // Check if we're in macro creation mode (more reliable than macroMode)
-          if (isMacroFlowActive() || macroMode === 'macro') {
-            console.log('[Paste] In macro creation mode - using training image handler');
-            await handleMacroTrainingImage(file);
-          } else {
-            console.log('[Paste] In normal mode - using file select handler');
-            await handleFileSelect(file);
-          }
+          event.preventDefault();
+          await handleNormalFile(file);
+          return true;
         }
-        break;
       }
     }
+    return false;
   };
 
-  const handleMacroTrainingImage = async (file: File) => {
-    console.log('[Macro] Processing training image:', file.name, file.type);
-    console.log('[Macro] Current macroMode:', macroMode);
-    console.log('[Macro] Current stage:', stage);
-
+  const handleStudioFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       setError('Please select an image file');
       return;
     }
 
-    // Clear any previous state and FORCE macro mode
     setError('');
-    macroFlowActiveRef.current = true;
-    setMacroMode('macro'); // Set this FIRST
-    setStage('macro-create'); // Then set stage
-
-    console.log('[Macro] Forced macroMode to macro, stage to macro-create');
-    
     const reader = new FileReader();
     reader.onload = (e) => {
       const imageData = e.target?.result as string;
-      console.log('[Macro] Image loaded, switching to regions stage');
       setMacroTrainingImage(imageData);
-      setMacroCreationStage('regions');
+      setStudioStage('regions');
     };
     reader.readAsDataURL(file);
   };
 
-  // Removed unused function
-
-  const handleRegionSelect = (region: any, name: string) => {
-    setMacroRegions(prev => [...prev, { rect: region, name, id: `region_${Date.now()}` }]);
-  };
-
-  const handleRegionComplete = () => {
-    setMacroCreationStage('colors');
-  };
-
-  const handleColorSelect = (_textColor: string, _backgroundColor: string) => {
-    // setMacroColors({ textColor, backgroundColor });
-    setMacroCreationStage('smart');
-  };
-
-  const handleSmartExtractionConfigure = (regions: ExtractionRegion[]) => {
-    setMacroExtractionRegions(regions);
-    setMacroCreationStage('fields');
-  };
-
-  const handleMacroComplete = async (fieldMappings: MacroFieldMapping[]) => {
-    try {
-      const macro: Macro = {
-        id: generateMacroId(),
-        name: `Macro ${macros.length + 1}`,
-        description: `Extracts ${macroRegions.length} regions`,
-        createdAt: Date.now(),
-        useCount: 0,
-        trainingScreenshot: macroTrainingImage,
-        extractionRegions: macroExtractionRegions,
-        targetFields: [],
-        fieldMappings,
-      };
-
-      await saveMacro(macro);
-      setMacros(prev => [...prev, macro]);
-      
-      // Reset macro creation
-      setMacroCreationStage('upload');
-      setMacroTrainingImage('');
-      setMacroRegions([]);
-      // setMacroColors({ textColor: '', backgroundColor: '' });
-      setMacroExtractionRegions([]);
-      setStage('upload');
-      macroFlowActiveRef.current = false;
-
-    } catch (error) {
-      setError(`Failed to save macro: ${error}`);
+  const handleStudioDrop = (e: DragEvent) => {
+    e.preventDefault();
+    setIsStudioDragActive(false);
+    if (activeMode !== 'studio' || studioStage !== 'upload') return;
+    const file = e.dataTransfer?.files?.[0];
+    if (file) {
+      void handleStudioFile(file);
     }
   };
 
+  const handleStudioDragOver = (e: DragEvent) => {
+    e.preventDefault();
+    if (activeMode !== 'studio' || studioStage !== 'upload') return;
+    if (!isStudioDragActive) {
+      setIsStudioDragActive(true);
+    }
+  };
+
+  const handleStudioDragLeave = () => {
+    setIsStudioDragActive(false);
+  };
+
+  const handleStudioPaste = async (event: ClipboardEvent) => {
+    if (activeMode !== 'studio' || studioStage !== 'upload') return false;
+    const items = event.clipboardData?.items;
+    if (!items) return false;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.indexOf('image') !== -1) {
+        const file = item.getAsFile();
+        if (file) {
+          event.preventDefault();
+          await handleStudioFile(file);
+          return true;
+        }
+      }
+    }
+    return false;
+  };
 
   const processImage = async (imageData: string) => {
-    // Safety check: Don't process if we're in macro creation mode
-    if (isMacroFlowActive() || macroMode === 'macro') {
-      console.log('[Popup] Skipping OCR processing - in macro creation mode');
-      return;
-    }
-    
-    setStage('processing');
+    setNormalStage('processing');
     setError('');
     setProgress(0);
     setStatusText('Initializing OCR...');
 
     try {
-      // Initialize Cloud OCR engine
       const ocr = getCloudOcrEngine();
-      console.log('[Popup] Initializing Cloud OCR...');
       await ocr.initialize();
 
       setStatusText('Processing image...');
       setProgress(0.3);
 
-      // Run OCR
-      console.log('[Popup] Running OCR...');
       const ocrResult = await ocr.recognize(imageData);
-      console.log('[Popup] OCR complete, extracted lines:', ocrResult.lines.length);
-      
+
       setStatusText('Extracting fields...');
       setProgress(0.7);
 
-      // Extract key-value pairs
       const extractedPairs = extractKeyValuePairs(ocrResult);
-      console.log('[Popup] Extracted pairs:', extractedPairs.length);
       setPairs(extractedPairs);
 
       if (extractedPairs.length === 0) {
@@ -295,57 +296,39 @@ function Popup() {
       setStatusText('Discovering page fields...');
       setProgress(0.9);
 
-      // Request field discovery from content script
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab.id) throw new Error('No active tab');
 
-      // Discover fields on current page
       let response;
       try {
         response = await chrome.tabs.sendMessage(tab.id, { type: 'DISCOVER_FIELDS' });
       } catch (err: any) {
-        // Content script not loaded - user needs to refresh the page
         throw new Error('Content script not loaded. Please refresh the page and try again.');
       }
 
-      console.log('[Popup] Fields discovered:', response);
       if (response && response.payload) {
         setFields(response.payload.fields);
-        console.log('[Popup] Set fields:', response.payload.fields.length);
       }
 
       setProgress(1);
-      setStage('review');
+      setNormalStage('review');
     } catch (err: any) {
       console.error('[Popup] Processing error:', err);
       const errorMsg = err?.message || err?.toString() || 'Unknown error';
-      
-      // More user-friendly error messages
       let displayError = errorMsg;
       if (errorMsg.includes('Could not establish connection')) {
         displayError = 'Could not connect to the page. Please refresh the page and try again.';
       } else if (errorMsg.includes('fetch')) {
         displayError = 'Network error. Please check your internet connection.';
       }
-      
       setError(`Failed to process image: ${displayError}`);
-      // Only reset to upload if we're not in macro creation mode
-      if (!stage.toString().includes('macro')) {
-        setStage('upload');
-      }
+      setNormalStage('upload');
     }
   };
 
   const handleFillPage = async (dryRun = false) => {
-    setStage('filling');
+    setNormalStage('filling');
     setError('');
-
-    console.log('[Popup] Filling page...', { 
-      mappings: mappings.length, 
-      pairs: pairs.length,
-      fields: fields.length,
-      dryRun 
-    });
 
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -355,30 +338,28 @@ function Popup() {
         throw new Error('No fields matched. Try adjusting your screenshot.');
       }
 
-      // Send fill command with all necessary data
       const response = await chrome.tabs.sendMessage(tab.id, {
         type: 'FILL_FIELDS',
-        payload: { 
-          mappings, 
+        payload: {
+          mappings,
           fields,
           pairs,
-          dryRun 
+          dryRun,
         },
       });
 
       console.log('[Popup] Fill response:', response);
-      setStage('done');
+      setNormalStage('done');
     } catch (err: any) {
       console.error('[Popup] Fill error:', err);
       setError(`Failed to fill fields: ${err?.message || err}`);
-      setStage('review');
+      setNormalStage('review');
     }
   };
 
   const handleEditValue = (pairId: string, newValue: string) => {
-    setPairs(pairs.map(p => p.id === pairId ? { ...p, value: newValue } : p));
-    // Update mappings
-    setMappings(mappings.map(m => m.ocrPairId === pairId ? { ...m, value: newValue } : m));
+    setPairs((prev) => prev.map((p) => (p.id === pairId ? { ...p, value: newValue } : p)));
+    setMappings((prev) => prev.map((m) => (m.ocrPairId === pairId ? { ...m, value: newValue } : m)));
   };
 
   const handleSaveRules = async () => {
@@ -402,463 +383,684 @@ function Popup() {
     }
   };
 
-  useEffect(() => {
-    if (stage === 'review' && pairs.length > 0 && fields.length > 0) {
-      // Auto-match fields
-      console.log('[Popup] Auto-matching fields...', { pairs: pairs.length, fields: fields.length });
-      
-      // Import and use match directly (no need for messaging)
-      import('../core/match').then(({ matchPairsToFields, explainMatch }) => {
-        const result = matchPairsToFields(pairs, fields);
-        console.log('[Popup] Match result:', { 
-          mappings: result.mappings.length,
-          unmatchedFields: result.unmatchedFields.length,
-          unmatchedPairs: result.unmatchedPairs.length 
-        });
-        
-        // Debug: Log each mapping with explanation
-        result.mappings.forEach((mapping, idx) => {
-          const field = fields.find(f => f.id === mapping.fieldId);
-          const pair = pairs.find(p => p.id === mapping.ocrPairId);
-          if (field && pair) {
-            const reasons = explainMatch(pair, field);
-            console.log(`[Popup] Mapping ${idx + 1}:`, {
-              ocrLabel: pair.rawLabel,
-              ocrValue: pair.value,
-              fieldLabel: field.labelText,
-              score: mapping.score.toFixed(3),
-              status: mapping.status,
-              reasons: reasons.join(', ')
-            });
-          }
-        });
-        
-        // Debug: Log unmatched pairs
-        result.unmatchedPairs.forEach(pair => {
-          console.log('[Popup] ⚠️ Unmatched OCR pair:', {
-            label: pair.rawLabel,
-            value: pair.value,
-            kind: pair.kind
-          });
-        });
-        
-        setMappings(result.mappings);
+  const handleMacroRun = async (macro: Macro) => {
+    setSelectedMacro(macro);
+    if (!macro.fieldMappings || macro.fieldMappings.length === 0) {
+      setMacroRunSummary({
+        macroId: macro.id,
+        totalSelectors: 0,
+        resolvedSelectors: 0,
+        unresolvedSelectors: [],
       });
+      setMacroStage('result');
+      return;
     }
-  }, [stage, pairs, fields]);
 
-  // Add paste event listener
-  useEffect(() => {
-    const handlePasteEvent = (event: ClipboardEvent) => handlePaste(event);
-    document.addEventListener('paste', handlePasteEvent);
-    return () => document.removeEventListener('paste', handlePasteEvent);
-  }, []);
+    setMacroStage('running');
+    setMacroRunSummary(null);
+    setError('');
 
-  // Load macros on component mount
-  useEffect(() => {
-    loadMacros().then(setMacros);
-  }, []);
+    const selectors = macro.fieldMappings.map((mapping) => mapping.selector).filter(Boolean);
+
+    if (selectors.length === 0) {
+      setMacroRunSummary({
+        macroId: macro.id,
+        totalSelectors: 0,
+        resolvedSelectors: 0,
+        unresolvedSelectors: [],
+      });
+      setMacroStage('result');
+      return;
+    }
+
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab.id) throw new Error('No active tab');
+      const tabId = tab.id;
+
+      const response = await chrome.tabs.sendMessage(tabId, {
+        type: 'RESOLVE_SELECTORS',
+        payload: { selectors },
+      });
+
+      const resolvedMap: Record<string, boolean> = response?.payload?.resolved || {};
+      const unresolvedSelectors = selectors.filter((selector) => !resolvedMap[selector]);
+      const resolvedSelectors = selectors.length - unresolvedSelectors.length;
+
+      setMacroRunSummary({
+        macroId: macro.id,
+        totalSelectors: selectors.length,
+        resolvedSelectors,
+        unresolvedSelectors,
+      });
+      setMacroStage('result');
+      void updateMacroUsage(macro.id);
+    } catch (err: any) {
+      console.error('[Popup] Macro run failed:', err);
+      setError(`Failed to run macro: ${err?.message || err}`);
+      setMacroStage('list');
+    }
+  };
+
+  const handleMacroPreview = async (macro: Macro) => {
+    setSelectedMacro(macro);
+    setMacroStage('preview');
+    setMacroPreviewResolved(null);
+
+    if (!macro.fieldMappings || macro.fieldMappings.length === 0) {
+      return;
+    }
+
+    const selectors = macro.fieldMappings.map((mapping) => mapping.selector).filter(Boolean);
+    if (selectors.length === 0) {
+      return;
+    }
+
+    try {
+      setMacroPreviewLoading(true);
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab.id) throw new Error('No active tab');
+      const tabId = tab.id;
+
+      const response = await chrome.tabs.sendMessage(tabId, {
+        type: 'RESOLVE_SELECTORS',
+        payload: { selectors },
+      });
+
+      const resolvedMap: Record<string, boolean> = response?.payload?.resolved || {};
+      setMacroPreviewResolved(resolvedMap);
+
+      const highlightPromises = selectors
+        .filter((selector) => resolvedMap[selector])
+        .map(async (selector) => {
+          await chrome.tabs.sendMessage(tabId, { type: 'SCROLL_TO_FIELD', payload: { selector, block: 'center' } });
+          await chrome.tabs.sendMessage(tabId, { type: 'HIGHLIGHT_FIELD', payload: { selector, durationMs: 1500 } });
+        });
+      await Promise.all(highlightPromises);
+    } catch (err: any) {
+      console.error('[Popup] Macro preview failed:', err);
+      setError(`Failed to preview macro: ${err?.message || err}`);
+    } finally {
+      setMacroPreviewLoading(false);
+    }
+  };
+
+  const handleUndoFill = async () => {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab.id) throw new Error('No active tab');
+      await chrome.tabs.sendMessage(tab.id, { type: 'UNDO_FILL' });
+      setMacroStage('list');
+      setMacroRunSummary(null);
+      setSelectedMacro(null);
+    } catch (err: any) {
+      setError(`Failed to undo: ${err?.message || err}`);
+    }
+  };
+
+  const handleMacroRegionSelect = (region: any, name: string) => {
+    setMacroRegions((prev) => [...prev, { rect: region, name, id: `region_${Date.now()}` }]);
+  };
+
+  const handleRegionComplete = () => {
+    setStudioStage('colors');
+  };
+
+  const handleColorSelect = (_textColor: string, _backgroundColor: string) => {
+    setStudioStage('smart');
+  };
+
+  const handleSmartExtractionConfigure = (regions: ExtractionRegion[]) => {
+    setMacroExtractionRegions(regions);
+    setStudioStage('fields');
+  };
+
+  const handleMacroComplete = async (fieldMappings: MacroFieldMapping[]) => {
+    try {
+      const macro: Macro = {
+        id: generateMacroId(),
+        name: `Macro ${macros.length + 1}`,
+        description: `Extracts ${macroRegions.length} regions`,
+        createdAt: Date.now(),
+        useCount: 0,
+        trainingScreenshot: macroTrainingImage,
+        extractionRegions: macroExtractionRegions,
+        targetFields: [],
+        fieldMappings,
+      };
+
+      await saveMacro(macro);
+      setMacros((prev) => [...prev, macro]);
+
+      setStudioStage('upload');
+      setMacroTrainingImage('');
+      setMacroRegions([]);
+      setMacroExtractionRegions([]);
+      setActiveMode('macro');
+    } catch (err: any) {
+      setError(`Failed to save macro: ${err}`);
+    }
+  };
+
+  const macroPreviewStats = useMemo(() => {
+    if (!selectedMacro || !selectedMacro.fieldMappings || !macroPreviewResolved) {
+      return null;
+    }
+    const selectors = selectedMacro.fieldMappings.map((mapping) => mapping.selector).filter(Boolean);
+    if (selectors.length === 0) return null;
+    const unresolved = selectors.filter((selector) => !macroPreviewResolved[selector]);
+    return {
+      total: selectors.length,
+      resolved: selectors.length - unresolved.length,
+      unresolved,
+    };
+  }, [selectedMacro, macroPreviewResolved]);
+
+  const renderNormalMode = () => {
+    if (normalStage === 'upload') {
+      return (
+        <div class="fm-card fm-popup__panel">
+          <div class="fm-popup__panel-header">
+            <h2 class="fm-h3">Import a screenshot</h2>
+            <p class="fm-text-muted">We’ll extract labels and values in seconds.</p>
+          </div>
+
+          <div
+            class={`fm-dropzone fm-popup__dropzone ${isNormalDragActive ? 'fm-dropzone--active' : ''}`}
+            onDrop={handleNormalDrop}
+            onDragOver={handleNormalDragOver}
+            onDragLeave={handleNormalDragLeave}
+            onClick={() => normalFileInputRef.current?.click()}
+            tabIndex={0}
+          >
+            <div class="fm-popup__dropzone-icon" aria-hidden="true">📸</div>
+            <h3 class="fm-h3">Drop or paste a screenshot</h3>
+            <p class="fm-text-muted">Or click to select a file from your device.</p>
+            <p class="fm-popup__hint">Supports JPG, PNG, WebP</p>
+          </div>
+
+          <input
+            ref={normalFileInputRef}
+            type="file"
+            accept="image/*"
+            class="fm-popup__hidden-input"
+            onChange={(e) => {
+              const file = (e.target as HTMLInputElement).files?.[0];
+              if (file) {
+                void handleNormalFile(file);
+              }
+            }}
+          />
+        </div>
+      );
+    }
+
+    if (normalStage === 'processing') {
+      return (
+        <div class="fm-card fm-popup__panel fm-popup__panel--center">
+          <div class="fm-spinner" role="status" aria-live="polite"></div>
+          <h2 class="fm-h3">Processing screenshot…</h2>
+          <p class="fm-text-muted">{statusText}</p>
+          <div class="fm-progress">
+            <div class="fm-progress__fill" style={{ width: `${progress * 100}%` }}></div>
+          </div>
+        </div>
+      );
+    }
+
+    if (normalStage === 'review') {
+      return (
+        <div class="fm-card fm-popup__panel">
+          <div class="fm-popup__panel-header">
+            <h2 class="fm-h3">Review extracted data</h2>
+            <p class="fm-text-muted">Found {pairs.length} potential matches. Adjust before filling.</p>
+          </div>
+
+          <div class="fm-popup__pairs">
+            {pairs.map((pair) => {
+              const mapping = mappings.find((m) => m.ocrPairId === pair.id);
+              const status = mapping ? mapping.status : 'ignored';
+
+              return (
+                <div key={pair.id} class={`fm-card fm-popup__pair fm-popup__pair--${status}`}>
+                  <div class="fm-popup__pair-header">
+                    <strong>{pair.rawLabel}</strong>
+                    <span class={`fm-popup__badge fm-popup__badge--${status}`}>{status}</span>
+                  </div>
+                  <input
+                    type="text"
+                    class="fm-input fm-popup__pair-input"
+                    value={pair.value}
+                    onInput={(e) => handleEditValue(pair.id, (e.target as HTMLInputElement).value)}
+                  />
+                  <div class="fm-popup__pair-meta">
+                    <span>{pair.kind}</span>
+                    <span>{Math.round(pair.conf * 100)}% confidence</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div class="fm-popup__actions">
+            <button type="button" class="fm-btn fm-btn--secondary" onClick={() => handleFillPage(true)}>
+              Preview
+            </button>
+            <button type="button" class="fm-btn fm-btn--primary" onClick={() => handleFillPage(false)}>
+              Fill page
+            </button>
+          </div>
+          <div class="fm-popup__secondary-actions">
+            <button type="button" class="fm-btn fm-btn--link" onClick={handleSaveRules}>
+              Save mapping rules
+            </button>
+            <button type="button" class="fm-btn fm-btn--link" onClick={() => setNormalStage('upload')}>
+              Start over
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (normalStage === 'filling') {
+      return (
+        <div class="fm-card fm-popup__panel fm-popup__panel--center">
+          <div class="fm-spinner" role="status" aria-live="polite"></div>
+          <h2 class="fm-h3">Filling fields…</h2>
+          <p class="fm-text-muted">Applying matches to the current page.</p>
+        </div>
+      );
+    }
 
     return (
-      <div class="fm-root fm-popup">
-        <header class="fm-card fm-popup__hero">
-          <div class="fm-popup__hero-brand">
-            <div class="fm-popup__hero-icon" aria-hidden="true">📋</div>
-            <div>
-              <h1 class="fm-h2 fm-popup__title">FormMirror</h1>
-              <p class="fm-popup__subtitle fm-text-muted">Screenshot → Autofill. Instantly.</p>
+      <div class="fm-card fm-popup__panel fm-popup__panel--center">
+        <div class="fm-popup__success-icon" aria-hidden="true">✓</div>
+        <h2 class="fm-h3">Form filled successfully</h2>
+        <p class="fm-text-muted">Review the page to confirm everything looks right.</p>
+        <button type="button" class="fm-btn fm-btn--primary" onClick={() => setNormalStage('upload')}>
+          Fill another form
+        </button>
+      </div>
+    );
+  };
+
+  const renderMacroMode = () => {
+    if (macroStage === 'list') {
+      return (
+        <MacroListPanel
+          macros={macros}
+          onPreview={(macro) => void handleMacroPreview(macro)}
+          onRun={(macro) => void handleMacroRun(macro)}
+          onCreateNew={() => setActiveMode('studio')}
+        />
+      );
+    }
+
+    if (macroStage === 'preview' && selectedMacro) {
+      const mappingsCount = selectedMacro.fieldMappings?.length || 0;
+      return (
+        <div class="fm-card fm-popup__panel">
+          <div class="fm-popup__panel-header">
+            <button
+              type="button"
+              class="fm-btn fm-btn--link fm-popup__back"
+              onClick={() => {
+                setMacroStage('list');
+                setSelectedMacro(null);
+              }}
+            >
+              ← Back to macros
+            </button>
+            <h2 class="fm-h3">{selectedMacro.name}</h2>
+            <p class="fm-text-muted">{selectedMacro.description || 'Saved automation'}</p>
+          </div>
+
+          <div class="fm-popup__macro-preview">
+            <img
+              src={selectedMacro.trainingScreenshot}
+              alt="Macro training screenshot"
+              class="fm-popup__macro-thumbnail"
+            />
+            <dl class="fm-popup__macro-stats">
+              <div>
+                <dt>Selectors</dt>
+                <dd>{mappingsCount}</dd>
+              </div>
+              <div>
+                <dt>Regions</dt>
+                <dd>{selectedMacro.extractionRegions.length}</dd>
+              </div>
+              <div>
+                <dt>Created</dt>
+                <dd>{new Date(selectedMacro.createdAt).toLocaleDateString()}</dd>
+              </div>
+            </dl>
+
+            {(!selectedMacro.fieldMappings || selectedMacro.fieldMappings.length === 0) && (
+              <p class="fm-popup__hint">No field mappings yet. Create in Macro Studio.</p>
+            )}
+
+            {macroPreviewStats && (
+              <div class="fm-popup__macro-preview-status">
+                <p>
+                  Resolved {macroPreviewStats.resolved}/{macroPreviewStats.total} selectors.
+                  {macroPreviewStats.unresolved.length > 0 && (
+                    <span> {macroPreviewStats.unresolved.length} unresolved.</span>
+                  )}
+                </p>
+                {macroPreviewStats.unresolved.length > 0 && (
+                  <ul>
+                    {macroPreviewStats.unresolved.map((selector) => (
+                      <li key={selector} class="fm-text-muted">{selector}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div class="fm-popup__actions">
+            <button
+              type="button"
+              class="fm-btn fm-btn--secondary"
+              disabled={!selectedMacro.fieldMappings || macroPreviewLoading}
+              onClick={() => selectedMacro && handleMacroPreview(selectedMacro)}
+            >
+              {macroPreviewLoading ? 'Checking…' : 'Dry-run preview'}
+            </button>
+            <button
+              type="button"
+              class="fm-btn fm-btn--primary"
+              disabled={!selectedMacro.fieldMappings || selectedMacro.fieldMappings.length === 0}
+              onClick={() => selectedMacro && handleMacroRun(selectedMacro)}
+            >
+              Run now
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (macroStage === 'running') {
+      return (
+        <div class="fm-card fm-popup__panel fm-popup__panel--center">
+          <div class="fm-spinner" role="status" aria-live="polite"></div>
+          <h2 class="fm-h3">Running macro…</h2>
+          <p class="fm-text-muted">Checking saved selectors on the page.</p>
+        </div>
+      );
+    }
+
+    if (macroStage === 'result' && macroRunSummary && selectedMacro) {
+      return (
+        <div class="fm-card fm-popup__panel">
+          <div class="fm-popup__panel-header">
+            <button
+              type="button"
+              class="fm-btn fm-btn--link fm-popup__back"
+              onClick={() => {
+                setMacroStage('list');
+                setMacroRunSummary(null);
+                setSelectedMacro(null);
+              }}
+            >
+              ← Back to macros
+            </button>
+            <h2 class="fm-h3">{selectedMacro.name}</h2>
+            <p class="fm-text-muted">Run summary</p>
+          </div>
+
+          <div class="fm-popup__macro-result">
+            <div class="fm-popup__macro-result-stat">
+              <span class="fm-popup__macro-result-value">{macroRunSummary.resolvedSelectors}</span>
+              <span class="fm-text-muted">selectors resolved</span>
+            </div>
+            <div class="fm-popup__macro-result-stat">
+              <span class="fm-popup__macro-result-value">{macroRunSummary.totalSelectors}</span>
+              <span class="fm-text-muted">total selectors</span>
             </div>
           </div>
-          <div class="fm-popup__hero-actions">
-            <span class="fm-pill">Local-first</span>
-            <button
-              type="button"
-              class="fm-btn fm-btn--link fm-popup__hero-link"
-              onClick={() => chrome.tabs.create({ url: 'https://github.com/formmirror/formmirror' })}
-            >
-              Help
+
+          {macroRunSummary.unresolvedSelectors.length > 0 && (
+            <div class="fm-popup__macro-unresolved">
+              <h3 class="fm-h4">Unresolved selectors</h3>
+              <ul>
+                {macroRunSummary.unresolvedSelectors.map((selector) => (
+                  <li key={selector}>{selector}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div class="fm-popup__actions">
+            <button type="button" class="fm-btn fm-btn--secondary" onClick={handleUndoFill}>
+              Undo
+            </button>
+            <button type="button" class="fm-btn fm-btn--primary" onClick={() => setMacroStage('list')}>
+              Done
             </button>
           </div>
-        </header>
+        </div>
+      );
+    }
 
-        {error && (
-          <div class="fm-card fm-popup__error" role="alert">
-            <span class="fm-popup__error-text">⚠️ {error}</span>
+    return null;
+  };
+
+  const renderStudioMode = () => {
+    return (
+      <div class="fm-card fm-popup__panel">
+        <div class="fm-popup__panel-header">
+          {studioStage !== 'upload' && (
             <button
               type="button"
-              class="fm-btn fm-btn--link fm-popup__dismiss"
-              onClick={() => setError('')}
+              class="fm-btn fm-btn--link fm-popup__back"
+              onClick={() => {
+                setStudioStage('upload');
+                setMacroTrainingImage('');
+                setMacroRegions([]);
+                setMacroExtractionRegions([]);
+              }}
             >
-              Dismiss
+              ← Start over
             </button>
+          )}
+          <h2 class="fm-h3">Macro Studio</h2>
+          <p class="fm-text-muted">Teach FormMirror reusable automations.</p>
+        </div>
+
+        {studioStage === 'upload' && (
+          <div
+            class={`fm-dropzone fm-popup__dropzone ${isStudioDragActive ? 'fm-dropzone--active' : ''}`}
+            onDrop={handleStudioDrop}
+            onDragOver={handleStudioDragOver}
+            onDragLeave={handleStudioDragLeave}
+            onClick={() => studioFileInputRef.current?.click()}
+            tabIndex={0}
+          >
+            <div class="fm-popup__dropzone-icon" aria-hidden="true">🧪</div>
+            <h3 class="fm-h3">Drop or paste a training screenshot</h3>
+            <p class="fm-text-muted">We’ll use this to locate fields automatically.</p>
           </div>
         )}
 
-        <main class="fm-popup__main">
-          {stage === 'macro-create' && (
-            <div class="fm-card fm-popup__panel">
-              <div class="fm-popup__panel-header">
-                <button
-                  type="button"
-                  class="fm-btn fm-btn--link fm-popup__back"
-                  onClick={() => {
-                    setStage('upload');
-                    setMacroMode('macro');
-                    setMacroCreationStage('upload');
-                  }}
-                >
-                  ← Back to Macro Mode
-                </button>
-                <h2 class="fm-h3">Macro Studio</h2>
-                <p class="fm-text-muted">Teach FormMirror reusable automations.</p>
-              </div>
+        {studioStage === 'regions' && (
+          <RegionSelector
+            image={macroTrainingImage}
+            onSelect={handleMacroRegionSelect}
+            onComplete={handleRegionComplete}
+          />
+        )}
 
-              <div class="fm-popup__panel-body">
-                {macroCreationStage === 'upload' && (
-                  <div class="fm-popup__panel-section">
-                    <div
-                      class={`fm-dropzone fm-popup__dropzone ${isMacroDragActive ? 'fm-dropzone--active' : ''}`}
-                      onDrop={handleMacroDrop}
-                      onDragOver={handleMacroDragOver}
-                      onDragLeave={handleMacroDragLeave}
-                      onPaste={(e) => {
-                        e.preventDefault();
-                        const items = e.clipboardData?.items;
-                        if (!items) return;
-                        for (const item of Array.from(items)) {
-                          if (item.type.startsWith('image/')) {
-                            const file = item.getAsFile();
-                            if (file) handleMacroTrainingImage(file);
-                          }
-                        }
-                      }}
-                      onClick={() => macroFileInputRef.current?.click()}
-                      tabIndex={0}
-                    >
-                      <div class="fm-popup__dropzone-icon" aria-hidden="true">⚡</div>
-                      <h3 class="fm-h3">Upload training screenshot</h3>
-                      <p class="fm-text-muted">Drag & drop, paste, or click to choose a file.</p>
-                      <p class="fm-popup__hint">Teaches the macro how to find your data.</p>
-                    </div>
+        {studioStage === 'colors' && (
+          <ColorSelector
+            regions={macroRegions}
+            onConfirm={handleColorSelect}
+            onBack={() => setStudioStage('regions')}
+          />
+        )}
 
-                    <input
-                      ref={macroFileInputRef}
-                      type="file"
-                      accept="image/*"
-                      class="fm-popup__hidden-input"
-                      onChange={(e) => {
-                        const file = (e.target as HTMLInputElement).files?.[0];
-                        if (file) handleMacroTrainingImage(file);
-                      }}
-                    />
-                  </div>
-                )}
+        {studioStage === 'smart' && (
+          <SmartExtraction
+            regions={macroRegions}
+            onConfigured={handleSmartExtractionConfigure}
+            onBack={() => setStudioStage('colors')}
+          />
+        )}
 
-                {macroCreationStage === 'regions' && (
-                  <div class="fm-popup__panel-section">
-                    <h3 class="fm-h3">Select data regions</h3>
-                    <p class="fm-text-muted">Draw boxes around the data you want to capture.</p>
-                    <div class="fm-popup__panel-card">
-                      <RegionSelector
-                        imageSrc={macroTrainingImage}
-                        onRegionSelect={handleRegionSelect}
-                        onComplete={handleRegionComplete}
-                      />
-                    </div>
-                  </div>
-                )}
+        {studioStage === 'fields' && (
+          <FieldMapper
+            regions={macroExtractionRegions}
+            onComplete={handleMacroComplete}
+            onBack={() => setStudioStage('smart')}
+          />
+        )}
 
-                {macroCreationStage === 'colors' && (
-                  <div class="fm-popup__panel-section">
-                    <ColorSelector
-                      onColorSelect={handleColorSelect}
-                      onSkip={() => setMacroCreationStage('smart')}
-                    />
-                  </div>
-                )}
-
-                {macroCreationStage === 'smart' && (
-                  <div class="fm-popup__panel-section">
-                    <SmartExtraction
-                      regions={macroRegions}
-                      onConfigure={handleSmartExtractionConfigure}
-                      onBack={() => setMacroCreationStage('colors')}
-                    />
-                  </div>
-                )}
-
-                {macroCreationStage === 'fields' && (
-                  <div class="fm-popup__panel-section">
-                    <FieldMapper
-                      regions={macroExtractionRegions}
-                      onBack={() => setMacroCreationStage('smart')}
-                      onSave={(mappings) => {
-                        handleMacroComplete(mappings);
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {stage === 'macro-select' && (
-            <div class="fm-card fm-popup__panel">
-              <div class="fm-popup__panel-header">
-                <button
-                  type="button"
-                  class="fm-btn fm-btn--link fm-popup__back"
-                  onClick={() => setStage('upload')}
-                >
-                  ← Back
-                </button>
-                <h2 class="fm-h3">Choose a saved macro</h2>
-                <p class="fm-text-muted">Launch a previously trained workflow.</p>
-              </div>
-
-              <div class="fm-popup__macro-grid">
-                {macros.length === 0 ? (
-                  <div class="fm-overlay-empty">No macros available yet.</div>
-                ) : (
-                  macros.map((macro) => (
-                    <button
-                      type="button"
-                      key={macro.id}
-                      class="fm-card fm-popup__macro-item"
-                      onClick={() => {
-                        setStage('upload');
-                        setMacroMode('normal');
-                      }}
-                    >
-                      <span class="fm-popup__macro-name">{macro.name}</span>
-                      <span class="fm-popup__macro-meta">Used {macro.useCount}× • {new Date(macro.createdAt).toLocaleDateString()}</span>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-
-          {stage === 'upload' && (
-            <div class="fm-card fm-popup__panel">
-              <div class="fm-popup__panel-header">
-                <h2 class="fm-h3">Import a screenshot</h2>
-                <p class="fm-text-muted">We’ll extract labels and values in seconds.</p>
-              </div>
-
-              <div class="fm-popup__mode-toggle" role="tablist">
-                <button
-                  type="button"
-                  class={`fm-popup__mode-btn ${macroMode === 'normal' ? 'is-active' : ''}`}
-                  onClick={() => setMacroMode('normal')}
-                >
-                  <span class="fm-popup__mode-emoji" aria-hidden="true">📋</span> Normal Mode
-                </button>
-                <button
-                  type="button"
-                  class={`fm-popup__mode-btn ${macroMode === 'macro' ? 'is-active' : ''}`}
-                  onClick={() => setMacroMode('macro')}
-                >
-                  <span class="fm-popup__mode-emoji" aria-hidden="true">⚡</span> Macro Studio
-                </button>
-              </div>
-
-              {macroMode === 'normal' ? (
-                <div
-                  class={`fm-dropzone fm-popup__dropzone ${isDragActive ? 'fm-dropzone--active' : ''}`}
-                  onDrop={handleDrop}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onPaste={handlePaste}
-                  onClick={() => fileInputRef.current?.click()}
-                  tabIndex={0}
-                >
-                  <div class="fm-popup__dropzone-icon" aria-hidden="true">📸</div>
-                  <h3 class="fm-h3">Drop or paste a screenshot</h3>
-                  <p class="fm-text-muted">Or click to select a file from your device.</p>
-                  <p class="fm-popup__hint">Supports JPG, PNG, WebP</p>
-                </div>
-              ) : (
-                <div class="fm-popup__macro-mode">
-                  <div class="fm-popup__macro-actions">
-                    <button
-                      type="button"
-                      class="fm-btn fm-btn--primary"
-                      onClick={() => {
-                        setMacroMode('macro');
-                        setStage('macro-create');
-                        setMacroCreationStage('upload');
-                      }}
-                    >
-                      ➕ Create new macro
-                    </button>
-                    <button
-                      type="button"
-                      class="fm-btn fm-btn--secondary"
-                      onClick={() => setStage('macro-select')}
-                      disabled={macros.length === 0}
-                    >
-                      📁 Use saved macro ({macros.length})
-                    </button>
-                  </div>
-
-                  {macros.length > 0 && (
-                    <div class="fm-popup__macro-recents">
-                      <h3 class="fm-h3">Recent macros</h3>
-                      <div class="fm-popup__macro-recents-list">
-                        {macros.slice(0, 3).map((macro) => (
-                          <button
-                            type="button"
-                            key={macro.id}
-                            class="fm-card fm-popup__macro-preview"
-                            onClick={() => setStage('upload')}
-                          >
-                            <span class="fm-popup__macro-name">{macro.name}</span>
-                            <span class="fm-popup__macro-meta">Used {macro.useCount}× • {new Date(macro.createdAt).toLocaleDateString()}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                class="fm-popup__hidden-input"
-                onChange={(e) => {
-                  const file = (e.target as HTMLInputElement).files?.[0];
-                  if (file) {
-                    if (macroMode === 'macro') {
-                      handleMacroTrainingImage(file);
-                    } else {
-                      handleFileSelect(file);
-                    }
-                  }
-                }}
-              />
-            </div>
-          )}
-
-          {stage === 'processing' && (
-            <div class="fm-card fm-popup__panel fm-popup__panel--center">
-              <div class="fm-spinner" role="status" aria-live="polite"></div>
-              <h2 class="fm-h3">Processing screenshot…</h2>
-              <p class="fm-text-muted">{statusText}</p>
-              <div class="fm-progress">
-                <div class="fm-progress__fill" style={{ width: `${progress * 100}%` }}></div>
-              </div>
-            </div>
-          )}
-
-          {stage === 'review' && (
-            <div class="fm-card fm-popup__panel">
-              <div class="fm-popup__panel-header">
-                <h2 class="fm-h3">Review extracted data</h2>
-                <p class="fm-text-muted">Found {pairs.length} potential matches. Adjust before filling.</p>
-              </div>
-
-              <div class="fm-popup__pairs">
-                {pairs.map((pair) => {
-                  const mapping = mappings.find((m) => m.ocrPairId === pair.id);
-                  const status = mapping ? mapping.status : 'ignored';
-
-                  return (
-                    <div key={pair.id} class={`fm-card fm-popup__pair fm-popup__pair--${status}`}>
-                      <div class="fm-popup__pair-header">
-                        <strong>{pair.rawLabel}</strong>
-                        <span class={`fm-popup__badge fm-popup__badge--${status}`}>{status}</span>
-                      </div>
-                      <input
-                        type="text"
-                        class="fm-input fm-popup__pair-input"
-                        value={pair.value}
-                        onInput={(e) => handleEditValue(pair.id, (e.target as HTMLInputElement).value)}
-                      />
-                      <div class="fm-popup__pair-meta">
-                        <span>{pair.kind}</span>
-                        <span>{Math.round(pair.conf * 100)}% confidence</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div class="fm-popup__actions">
-                <button type="button" class="fm-btn fm-btn--secondary" onClick={() => handleFillPage(true)}>
-                  Preview
-                </button>
-                <button type="button" class="fm-btn fm-btn--primary" onClick={() => handleFillPage(false)}>
-                  Fill page
-                </button>
-              </div>
-              <div class="fm-popup__secondary-actions">
-                <button type="button" class="fm-btn fm-btn--link" onClick={handleSaveRules}>
-                  Save mapping rules
-                </button>
-                <button type="button" class="fm-btn fm-btn--link" onClick={() => setStage('upload')}>
-                  Start over
-                </button>
-              </div>
-            </div>
-          )}
-
-          {stage === 'filling' && (
-            <div class="fm-card fm-popup__panel fm-popup__panel--center">
-              <div class="fm-spinner" role="status" aria-live="polite"></div>
-              <h2 class="fm-h3">Filling fields…</h2>
-              <p class="fm-text-muted">Applying matches to the current page.</p>
-            </div>
-          )}
-
-          {stage === 'done' && (
-            <div class="fm-card fm-popup__panel fm-popup__panel--center">
-              <div class="fm-popup__success-icon" aria-hidden="true">✓</div>
-              <h2 class="fm-h3">Form filled successfully</h2>
-              <p class="fm-text-muted">Review the page to confirm everything looks right.</p>
-              <button type="button" class="fm-btn fm-btn--primary" onClick={() => setStage('upload')}>
-                Fill another form
-              </button>
-            </div>
-          )}
-        </main>
-
-        <footer class="fm-popup__footer">
-          <button type="button" class="fm-btn fm-btn--link" onClick={() => chrome.runtime.openOptionsPage()}>
-            Settings
-          </button>
-          <span aria-hidden="true">•</span>
-          <a
-            class="fm-popup__footer-link"
-            href="https://github.com/formmirror/formmirror"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Help
-          </a>
-          <span aria-hidden="true">•</span>
-          <span class="fm-popup__footer-pill" title="All processing happens locally">🔒 Private</span>
-        </footer>
+        <input
+          ref={studioFileInputRef}
+          type="file"
+          accept="image/*"
+          class="fm-popup__hidden-input"
+          onChange={(e) => {
+            const file = (e.target as HTMLInputElement).files?.[0];
+            if (file) {
+              void handleStudioFile(file);
+            }
+          }}
+        />
       </div>
     );
-  }
+  };
 
-// Listen for paste events globally
-window.addEventListener('paste', async (e: ClipboardEvent) => {
-  const items = e.clipboardData?.items;
-  if (!items) return;
+  return (
+    <div class="fm-root fm-popup">
+      <header class="fm-card fm-popup__hero">
+        <div class="fm-popup__hero-brand">
+          <div class="fm-popup__hero-icon" aria-hidden="true">📋</div>
+          <div>
+            <h1 class="fm-h2 fm-popup__title">FormMirror</h1>
+            <p class="fm-popup__subtitle fm-text-muted">Screenshot → Autofill. Instantly.</p>
+          </div>
+        </div>
+        <div class="fm-popup__hero-actions">
+          <span class="fm-pill">Local-first</span>
+          <button
+            type="button"
+            class="fm-btn fm-btn--link fm-popup__hero-link"
+            onClick={() => chrome.tabs.create({ url: 'https://github.com/formmirror/formmirror' })}
+          >
+            Help
+          </button>
+        </div>
+      </header>
 
-  for (const item of Array.from(items)) {
-    if (item.type.startsWith('image/')) {
-      e.preventDefault();
-      // Trigger the popup's paste handler
-      window.dispatchEvent(new CustomEvent('formmirror-paste', { detail: item }));
-      break;
-    }
-  }
-});
+      {error && (
+        <div class="fm-card fm-popup__error" role="alert">
+          <span class="fm-popup__error-text">⚠️ {error}</span>
+          <button type="button" class="fm-btn fm-btn--link fm-popup__dismiss" onClick={() => setError('')}>
+            Dismiss
+          </button>
+        </div>
+      )}
 
-render(<Popup />, document.getElementById('root')!);
+      <div class="fm-popup__mode-switch" role="tablist" aria-label="Popup mode">
+        {MODE_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            role="tab"
+            type="button"
+            aria-selected={activeMode === tab.id}
+            class={`fm-popup__mode-tab ${activeMode === tab.id ? 'is-active' : ''}`}
+            onClick={() => setActiveMode(tab.id)}
+          >
+            <span aria-hidden="true" class="fm-popup__mode-emoji">
+              {tab.emoji}
+            </span>
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
+      <main class="fm-popup__main">
+        {activeMode === 'normal' && renderNormalMode()}
+        {activeMode === 'macro' && renderMacroMode()}
+        {activeMode === 'studio' && renderStudioMode()}
+      </main>
+
+      <footer class="fm-popup__footer">
+        <button type="button" class="fm-btn fm-btn--link" onClick={() => chrome.runtime.openOptionsPage()}>
+          Settings
+        </button>
+        <span aria-hidden="true">•</span>
+        <a
+          class="fm-popup__footer-link"
+          href="https://github.com/formmirror/formmirror"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Help
+        </a>
+        <span aria-hidden="true">•</span>
+        <span class="fm-popup__footer-pill" title="All processing happens locally">🔒 Private</span>
+      </footer>
+    </div>
+  );
+}
+
+interface MacroListPanelProps {
+  macros: Macro[];
+  onPreview: (macro: Macro) => void;
+  onRun: (macro: Macro) => void;
+  onCreateNew: () => void;
+}
+
+export function MacroListPanel({ macros, onPreview, onRun, onCreateNew }: MacroListPanelProps) {
+  return (
+    <div class="fm-card fm-popup__panel">
+      <div class="fm-popup__panel-header">
+        <h2 class="fm-h3">Macro Mode</h2>
+        <p class="fm-text-muted">Run saved automations on this page.</p>
+      </div>
+
+      <div class="fm-popup__macro-actions">
+        <button type="button" class="fm-btn fm-btn--primary" onClick={onCreateNew}>
+          ➕ Create new macro
+        </button>
+      </div>
+
+      {macros.length === 0 ? (
+        <div class="fm-popup__empty-state">
+          <p class="fm-text-muted">No macros yet. Create one in Macro Studio.</p>
+        </div>
+      ) : (
+        <ul class="fm-popup__macro-list">
+          {macros.map((macro) => (
+            <li key={macro.id} class="fm-card fm-popup__macro-list-item">
+              <div class="fm-popup__macro-list-details">
+                <h3 class="fm-h4">{macro.name}</h3>
+                <p class="fm-text-muted">{macro.description || 'No description provided.'}</p>
+                <div class="fm-popup__macro-meta">
+                  <span>Created {new Date(macro.createdAt).toLocaleDateString()}</span>
+                  <span>Used {macro.useCount}×</span>
+                </div>
+              </div>
+              <div class="fm-popup__macro-list-actions">
+                <button type="button" class="fm-btn fm-btn--secondary" onClick={() => onPreview(macro)}>
+                  Preview
+                </button>
+                <button type="button" class="fm-btn fm-btn--primary" onClick={() => onRun(macro)}>
+                  Run
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+const rootElement = document.getElementById('root');
+if (rootElement) {
+  render(<Popup />, rootElement);
+}

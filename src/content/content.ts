@@ -138,8 +138,30 @@ async function handleMessage(message: Message): Promise<any> {
     case 'UNDO_FILL': {
       restoreOriginalValues(currentFields, originalValues);
       showNotification('Undo complete', 'success');
-      
+
       return { success: true };
+    }
+
+    case 'RESOLVE_SELECTORS': {
+      const selectors: string[] = message.payload?.selectors || [];
+      const resolved: Record<string, boolean> = {};
+
+      for (const selector of selectors) {
+        if (!selector) {
+          continue;
+        }
+        try {
+          resolved[selector] = Boolean(resolveElementBySelector(selector));
+        } catch (error) {
+          console.warn('[Content] Failed to resolve selector:', selector, error);
+          resolved[selector] = false;
+        }
+      }
+
+      return {
+        type: 'RESOLVE_SELECTORS_RESULT',
+        payload: { resolved },
+      };
     }
 
     case 'CLEAR_SESSION': {
