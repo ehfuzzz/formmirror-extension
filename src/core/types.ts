@@ -127,12 +127,25 @@ export interface Macro {
   targetFields: TargetField[];
 }
 
+export type PatternPresetKey =
+  | 'everything'
+  | 'email'
+  | 'us_phone'
+  | 'date_iso'
+  | 'zip_us'
+  | 'url'
+  | 'uppercase6'
+  | 'number'
+  | 'custom';
+
 export interface ExtractionRegion {
   id: string;
   name: string; // User-friendly name like "Price", "Volume", etc.
   bbox: Rect; // Coordinates in the training screenshot
   color?: string; // Optional color hint for visual matching
   textPattern?: string; // Optional regex pattern for validation
+  textPatternPreset?: PatternPresetKey; // Selected preset for pattern matching
+  textPatternCustom?: string; // Last custom regex entered by the user
   position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center'; // Position preference
   tolerance?: number; // Color matching tolerance (0-1)
 }
