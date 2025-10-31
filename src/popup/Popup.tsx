@@ -50,11 +50,25 @@ function Popup() {
     });
   }, []);
 
+  useEffect(() => {
+    if (stage !== 'macro-create' && macroFlowActiveRef.current) {
+      console.log('[Macro] Stage changed away from macro-create - resetting macro flow flag');
+      macroFlowActiveRef.current = false;
+    }
+  }, [stage]);
+
   const handleFileSelect = async (file: File) => {
     console.log('[FileSelect] File selected:', file.name, file.type);
     console.log('[FileSelect] Current macroMode:', macroMode);
     console.log('[FileSelect] Current stage:', stage);
-    
+
+    // If the user is in the macro creation flow, route the file to the macro handler instead
+    if (isMacroFlowActive() || macroMode === 'macro') {
+      console.log('[FileSelect] Detected macro creation context - forwarding to macro handler');
+      await handleMacroTrainingImage(file);
+      return;
+    }
+
     if (!file.type.startsWith('image/')) {
       setError('Please select an image file');
       return;
@@ -75,7 +89,7 @@ function Popup() {
     const file = e.dataTransfer?.files[0];
     if (file) {
       // Always use macro training image handler when in macro mode
-      if (macroMode === 'macro') {
+      if (macroMode === 'macro' || isMacroFlowActive()) {
         handleMacroTrainingImage(file);
       } else {
         handleFileSelect(file);
@@ -136,7 +150,7 @@ function Popup() {
           console.log('[Paste] Image file found:', file.name, file.type);
           
           // Check if we're in macro creation mode (more reliable than macroMode)
-          if (stage === 'macro-create') {
+          if (isMacroFlowActive() || macroMode === 'macro') {
             console.log('[Paste] In macro creation mode - using training image handler');
             await handleMacroTrainingImage(file);
           } else {
@@ -153,7 +167,7 @@ function Popup() {
     console.log('[Macro] Processing training image:', file.name, file.type);
     console.log('[Macro] Current macroMode:', macroMode);
     console.log('[Macro] Current stage:', stage);
-    
+
     if (!file.type.startsWith('image/')) {
       setError('Please select an image file');
       return;
@@ -161,9 +175,10 @@ function Popup() {
 
     // Clear any previous state and FORCE macro mode
     setError('');
+    macroFlowActiveRef.current = true;
     setMacroMode('macro'); // Set this FIRST
     setStage('macro-create'); // Then set stage
-    
+
     console.log('[Macro] Forced macroMode to macro, stage to macro-create');
     
     const reader = new FileReader();
@@ -219,7 +234,8 @@ function Popup() {
       // setMacroColors({ textColor: '', backgroundColor: '' });
       setMacroExtractionRegions([]);
       setStage('upload');
-      
+      macroFlowActiveRef.current = false;
+
     } catch (error) {
       setError(`Failed to save macro: ${error}`);
     }
@@ -228,7 +244,7 @@ function Popup() {
 
   const processImage = async (imageData: string) => {
     // Safety check: Don't process if we're in macro creation mode
-    if (stage === 'macro-create') {
+    if (isMacroFlowActive() || macroMode === 'macro') {
       console.log('[Popup] Skipping OCR processing - in macro creation mode');
       return;
     }
