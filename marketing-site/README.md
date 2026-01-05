@@ -12,22 +12,19 @@ npm run dev
 
 ### Available scripts
 
-- `npm run dev` – Start the Vite development server with hot reload.
-- `npm run build` – Generate a production build in `dist/`.
-- `npm run preview` – Preview the production build locally.
-- `npm run lint` – Lint TypeScript/TSX files with ESLint.
-- `npm run typecheck` – Run TypeScript project references.
+- `npm run dev` - Start the Vite development server with hot reload.
+- `npm run build` - Generate a production build in `dist/`.
+- `npm run preview` - Preview the production build locally.
+- `npm run lint` - Lint TypeScript/TSX files with ESLint.
+- `npm run typecheck` - Run TypeScript project references.
 
 ### Environment variables
 
 Create a `.env` file to override defaults:
 
 ```
-VITE_CONTACT_ENDPOINT=https://your-api.example.com/contact
 VITE_REPO_URL=https://github.com/ehfuzzz/formmirror-extension
 ```
-
-If `VITE_CONTACT_ENDPOINT` is unset the contact page will show a `mailto:` fallback.
 
 ## Project structure
 
@@ -48,7 +45,7 @@ marketing-site/
 
 ## Deployment on AWS
 
-### Option A — AWS Amplify Hosting
+### Option A: AWS Amplify Hosting
 
 1. Push this repository to GitHub.
 2. In the Amplify console, **New app → Host web app** and connect the repo.
@@ -73,10 +70,10 @@ marketing-site/
            paths:
              - node_modules/**/*
    ```
-4. Add environment variables for `VITE_CONTACT_ENDPOINT` and `VITE_REPO_URL` if needed.
+4. Add environment variables for `VITE_REPO_URL` if needed.
 5. Deploy. Amplify serves the `dist/` output via a global CDN with HTTPS.
 
-### Option B — Amazon S3 + CloudFront
+### Option B: Amazon S3 + CloudFront
 
 1. Build the site:
    ```bash
@@ -98,10 +95,6 @@ marketing-site/
    - `X-Content-Type-Options: nosniff`
    - `Referrer-Policy: strict-origin-when-cross-origin`
 7. Configure Route 53 or your DNS provider to point to the CloudFront distribution.
-
-## Contact API example
-
-A sample AWS Lambda handler using SES lives in [`serverless/contact-handler.ts`](./serverless/contact-handler.ts). Deploy it with API Gateway + Lambda, then set `VITE_CONTACT_ENDPOINT` to the invocation URL. The handler validates payloads, sends email via SES, and returns structured JSON.
 
 ## Accessibility and performance
 

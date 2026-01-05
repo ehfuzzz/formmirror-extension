@@ -68,15 +68,15 @@ export function extractKeyValuePairs(ocrResult: OcrResult): OcrPair[] {
 }
 
 /**
- * Extract pairs from lines with : or — separators
- * Example: "First Name: John" or "Email — john@example.com"
+ * Extract pairs from lines with : or em dash separators
+ * Example: "First Name: John" or "Email - john@example.com"
  */
 function extractFromColonSeparator(line: OcrLine, lineIndex: number): OcrPair[] {
   const pairs: OcrPair[] = [];
   const text = line.text.trim();
 
-  // Match patterns like "Label: Value" or "Label — Value"
-  const separatorRegex = /^(.+?)[:—]\s*(.+)$/;
+  // Match patterns like "Label: Value" or "Label - Value"
+  const separatorRegex = /^(.+?)[:\u2014]\s*(.+)$/;
   const match = text.match(separatorRegex);
 
   if (match) {
@@ -245,7 +245,7 @@ function looksLikeLabel(text: string): boolean {
 function normalizeLabel(text: string): string {
   return text
     .toLowerCase()
-    .replace(/[:\-—*]/g, '') // Remove punctuation
+    .replace(/[:\-\u2014*]/g, '') // Remove punctuation
     .replace(/\s+/g, ' ') // Normalize whitespace
     .trim();
 }
@@ -356,4 +356,3 @@ function computeBoundingBox(boxes: Rect[]): Rect {
     height: maxY - minY,
   };
 }
-

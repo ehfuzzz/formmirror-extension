@@ -1,6 +1,6 @@
 # FormMirror
 
-**Screenshot-to-Autofill Chrome Extension** — Privacy-first form filling from images
+**Screenshot-to-Autofill Chrome Extension** - Privacy-first form filling from images
 
 FormMirror lets you fill web forms by simply dropping a screenshot of a previously completed form. All OCR and processing happens **100% locally** in your browser using WebAssembly. Zero network calls, zero data collection, zero compromise.
 
@@ -12,10 +12,10 @@ FormMirror lets you fill web forms by simply dropping a screenshot of a previous
 - **Local OCR** powered by Tesseract.js (WASM)
 - **Smart Matching** using AI-like similarity scoring and synonyms
 - **Framework-Safe** filling works with React, Vue, Angular
-- **Privacy-First** — all processing happens on-device
-- **Optional Rules** — save field mappings (never values) per domain
+- **Privacy-First** - all processing happens on-device
+- **Optional Rules** - save field mappings (never values) per domain
 - **Beautiful UI** with live preview and confidence scores
-- **Accessible** — follows WCAG label resolution
+- **Accessible** - follows WCAG label resolution
 
 ---
 
@@ -27,7 +27,7 @@ FormMirror lets you fill web forms by simply dropping a screenshot of a previous
 2. **Pin the extension** to your toolbar for easy access
 3. **Open a web form** you want to fill
 4. **Click the FormMirror icon** and drop/paste a screenshot
-5. **Review and fill** — that's it!
+5. **Review and fill** - that's it!
 
 ### Building from Source
 
@@ -109,10 +109,10 @@ Auto-fills at **78%+ confidence**, suggests review at **55-78%**, ignores below.
 
 ### What We DON'T Do
 
-- **No network requests** — Everything runs locally  
+- **No network requests** - Everything runs locally  
 - **No analytics or tracking**  
 - **No cloud processing**  
-- **No value storage** — We only save mapping rules (label → field selector), never your data  
+- **No value storage** - We only save mapping rules (label → field selector), never your data  
 - **No third-party services**
 
 ### What We DO
@@ -121,13 +121,13 @@ Auto-fills at **78%+ confidence**, suggests review at **55-78%**, ignores below.
 - All models and libraries are **bundled locally**  
 - Optional per-domain **mapping rules** stored locally (no values)  
 - **Content Security Policy** blocks external code  
-- **Open source** — audit the code yourself
+- **Open source** - audit the code yourself
 
 ### Threat Model
 
-- **Screenshots may contain PII** — Users should only process images they trust
-- **Malicious websites** — We can't prevent a site from stealing filled data after filling
-- **Browser vulnerabilities** — We rely on Chrome's sandbox for isolation
+- **Screenshots may contain PII** - Users should only process images they trust
+- **Malicious websites** - We can't prevent a site from stealing filled data after filling
+- **Browser vulnerabilities** - We rely on Chrome's sandbox for isolation
 
 ### Privacy Test
 
@@ -207,7 +207,7 @@ Edit `src/core/synonyms.json`:
 
 ## License
 
-**Apache-2.0** — See [LICENSE](./LICENSE)
+**Apache-2.0** - See [LICENSE](./LICENSE)
 
 Permissive open-source license. You can use, modify, and distribute this software, even for commercial purposes, as long as you include the license and copyright notice.
 
@@ -215,9 +215,9 @@ Permissive open-source license. You can use, modify, and distribute this softwar
 
 ## Acknowledgments
 
-- **Tesseract.js** — Amazing OCR in the browser
-- **Chrome Extension API** — Solid extension platform
-- **Open-source community** — For making privacy-first software possible
+- **Tesseract.js** - Amazing OCR in the browser
+- **Chrome Extension API** - Solid extension platform
+- **Open-source community** - For making privacy-first software possible
 
 ---
 

@@ -11,7 +11,7 @@ export function Footer() {
           <div className="max-w-md">
             <h2 className="text-2xl font-semibold text-ink">FormMirror</h2>
             <p className="mt-3 text-sm text-steel">
-              Screenshot-to-autofill that keeps everything local. Drag in a completed form image and
+              Screenshot to autofill extension that keeps everything local. Drag in a completed form image and
               mirror the answers into any live web form with confidence.
             </p>
             <div className="mt-6">
@@ -20,7 +20,7 @@ export function Footer() {
               </Button>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-8 text-sm text-steel sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-8 text-sm text-steel">
             <div className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-ink/70">Product</p>
               <Link to="/" className="block hover:text-blue-700">
@@ -28,9 +28,6 @@ export function Footer() {
               </Link>
               <Link to="/docs/getting-started" className="block hover:text-blue-700">
                 Documentation
-              </Link>
-              <Link to="/contact" className="block hover:text-blue-700">
-                Contact
               </Link>
             </div>
             <div className="space-y-3">
@@ -49,18 +46,6 @@ export function Footer() {
               <Link to="/legal/terms" className="block hover:text-blue-700">
                 Terms
               </Link>
-            </div>
-            <div className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink/70">Stay in touch</p>
-              <Link to="/contact" className="block hover:text-blue-700">
-                Request a demo
-              </Link>
-              <a
-                href="mailto:hello@formmirror.dev"
-                className="block text-blue-700 underline-offset-2 hover:underline"
-              >
-                hello@formmirror.dev
-              </a>
             </div>
           </div>
         </div>

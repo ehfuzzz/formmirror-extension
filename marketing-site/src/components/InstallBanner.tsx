@@ -9,8 +9,8 @@ export function InstallBanner() {
         <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Install today</p>
         <h2 className="text-3xl font-semibold text-ink">Mirror any form in minutes, not hours.</h2>
         <p className="text-sm text-steel">
-          Drop in a completed form screenshot, confirm mid-confidence matches, and let FormMirror drive
-          the keyboard events for you—always local, framework-safe, and privacy-first.
+          Drop in a completed form screenshot, confirm mid confidence matches, and let FormMirror drive
+          keyboard events for you. You stay local, framework safe, and privacy first.
         </p>
         <Button as="a" href={repoUrl} target="_blank" rel="noreferrer" className="shadow-md">
           Install on Chrome
