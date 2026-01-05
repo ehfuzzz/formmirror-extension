@@ -6,7 +6,7 @@ export default function NotFound() {
   return (
     <>
       <Helmet>
-        <title>Page not found — FormMirror</title>
+        <title>Page not found | FormMirror</title>
       </Helmet>
       <Section className="pt-24" background="subtle">
         <div className="mx-auto max-w-lg space-y-6 rounded-2xl border border-blue-100 bg-white p-10 text-center shadow-sm">

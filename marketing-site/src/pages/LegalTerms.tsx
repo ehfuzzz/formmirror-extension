@@ -39,9 +39,9 @@ export default function LegalTerms() {
             </p>
           </section>
           <section className="space-y-3 text-sm text-steel">
-            <h2 className="text-xl font-semibold text-ink">Contact</h2>
+            <h2 className="text-xl font-semibold text-ink">Support</h2>
             <p>
-              For legal questions email <a className="text-blue-700 underline-offset-2 hover:underline" href="mailto:legal@formmirror.dev">legal@formmirror.dev</a>.
+              For legal questions, open the GitHub repository and file an issue so we can respond.
             </p>
           </section>
         </div>

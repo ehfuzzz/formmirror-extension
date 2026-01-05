@@ -294,8 +294,7 @@ function mapInputTypeToFieldKind(type: string): FieldKind {
 function normalizeLabel(text: string): string {
   return text
     .toLowerCase()
-    .replace(/[:\-—*\?]/g, '') // Remove punctuation
+    .replace(/[:\-\u2014*\?]/g, '') // Remove punctuation
     .replace(/\s+/g, ' ') // Normalize whitespace
     .trim();
 }
-

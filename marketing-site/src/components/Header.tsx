@@ -8,7 +8,6 @@ import { cn } from '../utils/cn'
 const navItems = [
   { to: '/', label: 'Home' },
   { to: '/docs/getting-started', label: 'Docs' },
-  { to: '/contact', label: 'Contact' },
 ]
 
 const repoUrl = import.meta.env.VITE_REPO_URL ?? 'https://github.com/ehfuzzz/formmirror-extension'

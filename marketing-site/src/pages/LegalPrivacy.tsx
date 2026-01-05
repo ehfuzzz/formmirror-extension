@@ -22,7 +22,7 @@ export default function LegalPrivacy() {
             <h2 className="text-xl font-semibold text-ink">Collection & Processing</h2>
             <p>
               FormMirror processes screenshots entirely in memory for the duration of your session. Rules and macros
-              contain selector metadata only—no form values are stored.
+              contain selector metadata only, and no form values are stored.
             </p>
           </section>
           <section className="space-y-3 text-sm text-steel">
@@ -40,10 +40,9 @@ export default function LegalPrivacy() {
             </p>
           </section>
           <section className="space-y-3 text-sm text-steel">
-            <h2 className="text-xl font-semibold text-ink">Contact</h2>
+            <h2 className="text-xl font-semibold text-ink">Support</h2>
             <p>
-              Questions? Email <a className="text-blue-700 underline-offset-2 hover:underline" href="mailto:hello@formmirror.dev">hello@formmirror.dev</a>
-              and we’ll respond within two business days.
+              Questions about this notice? Open the GitHub repository and file an issue so we can review it with you.
             </p>
           </section>
         </div>

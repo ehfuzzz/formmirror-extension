@@ -3,7 +3,7 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda
 
 const ses = new SESClient({ region: process.env.AWS_REGION || 'us-east-1' })
 const allowedOrigin = process.env.ALLOWED_ORIGIN || 'https://formmirror.dev'
-const destinationEmail = process.env.DESTINATION_EMAIL || 'hello@formmirror.dev'
+const destinationEmail = process.env.DESTINATION_EMAIL || ''
 
 interface ContactPayload {
   name?: string
@@ -41,6 +41,14 @@ export const handler = async (
       statusCode: 405,
       headers: buildHeaders(),
       body: JSON.stringify({ message: 'Method Not Allowed' }),
+    }
+  }
+
+  if (!destinationEmail) {
+    return {
+      statusCode: 500,
+      headers: buildHeaders(),
+      body: JSON.stringify({ message: 'Destination email is not configured.' }),
     }
   }
 

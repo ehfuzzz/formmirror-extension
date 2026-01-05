@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**FormMirror** — Screenshot-to-Autofill Chrome Extension
+**FormMirror** - Screenshot-to-Autofill Chrome Extension
 
 **Last Updated**: October 12, 2025
 
@@ -40,7 +40,7 @@ FormMirror is designed with **privacy as the foundation**, not an afterthought. 
 
 - **What**: OCR language, threshold preferences, custom synonyms
 - **Storage**: `chrome.storage.local` (on your device)
-- **Sync**: We **never use** `chrome.storage.sync` — your data stays on this device
+- **Sync**: We **never use** `chrome.storage.sync` - your data stays on this device
 
 ---
 
@@ -82,7 +82,7 @@ FormMirror is designed with **privacy as the foundation**, not an afterthought. 
 ### Architecture
 
 1. **WebAssembly OCR**: Tesseract.js runs entirely in WASM, sandboxed from the network
-2. **Local Storage Only**: `chrome.storage.local` — never synced, never uploaded
+2. **Local Storage Only**: `chrome.storage.local` - never synced, never uploaded
 3. **Content Security Policy**: Blocks all external scripts and resources
 4. **Manifest V3**: Modern Chrome extension standard with strict permissions
 
@@ -174,7 +174,6 @@ We may update this policy to reflect changes in the extension. Material changes 
 
 For privacy questions, security reports, or concerns:
 
-- **Email**: privacy@formmirror.dev (coming soon)
 - **GitHub Issues**: [Report a privacy concern](https://github.com/formmirror/formmirror/issues/new?labels=privacy)
 - **Security**: See [SECURITY.md](../SECURITY.md) for vulnerability reporting
 
@@ -195,4 +194,3 @@ For privacy questions, security reports, or concerns:
 *"We will never process your data on our servers because we believe the best way to protect privacy is to never have access to your data in the first place."*
 
 🔒 **Built with privacy. Not bolted on.**
-

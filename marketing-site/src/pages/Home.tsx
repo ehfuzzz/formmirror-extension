@@ -13,25 +13,25 @@ const valueProps = [
   {
     title: 'Drop, paste, done.',
     description:
-      'Drag-and-drop, paste from your clipboard, or browse for a file. FormMirror maps the screenshot to the active page in seconds.',
+      'Drag and drop, paste from your clipboard, or browse for a file. FormMirror maps the screenshot to the active page in a few seconds.',
     icon: <Zap className="h-5 w-5" />,
   },
   {
     title: 'Totally local intelligence.',
     description:
-      'OCR and matching run entirely in-browser using WebAssembly. No uploads, no servers, no one looking over your shoulder.',
+      'OCR and matching run entirely in browser with WebAssembly. No uploads, no servers, and no one watching your fields.',
     icon: <Cpu className="h-5 w-5" />,
   },
   {
-    title: 'Framework-safe autofill.',
+    title: 'Framework safe autofill.',
     description:
-      'Native setters and real input/change events make React, Vue, Angular, and vanilla forms behave exactly like human typing.',
+      'Native setters and real input and change events keep React, Vue, Angular, and vanilla forms behaving exactly as if a human typed.',
     icon: <Puzzle className="h-5 w-5" />,
   },
   {
     title: 'Accessible by design.',
     description:
-      'WCAG accessible-name algorithm + layout heuristics make sure the right fields light up—even on complex enterprise layouts.',
+      'A WCAG aligned accessible name algorithm and layout heuristics help the right fields light up even on complex enterprise layouts.',
     icon: <Accessibility className="h-5 w-5" />,
   },
 ]
@@ -39,11 +39,11 @@ const valueProps = [
 const howItWorks = [
   {
     title: 'Upload',
-    description: 'Drop a completed form screenshot into FormMirror from drag-and-drop, paste, or file picker.',
+    description: 'Drop a completed form screenshot into FormMirror from drag and drop, paste, or file picker.',
   },
   {
     title: 'Recognize',
-    description: 'WebAssembly OCR with smart preprocessing extracts word-level data for precise mapping.',
+    description: 'WebAssembly OCR with smart preprocessing extracts word level data for precise mapping.',
   },
   {
     title: 'Match',
@@ -51,37 +51,37 @@ const howItWorks = [
   },
   {
     title: 'Fill',
-    description: 'Framework-safe events populate fields with smart handling for dates, selects, and contenteditable.',
+    description: 'Framework safe events populate fields with smart handling for dates, selects, and contenteditable regions.',
   },
   {
     title: 'Review',
-    description: 'Confirm mid-confidence matches, skip sensitive inputs, and store selectors locally for future visits.',
+    description: 'Confirm mid confidence matches, skip sensitive inputs, and store selectors locally for future visits.',
   },
 ]
 
 const featureDeepDive = [
   {
-    title: 'Intelligent OCR Pipeline',
+    title: 'Intelligent OCR pipeline.',
     description:
-      'WebAssembly-powered Tesseract.js with optional contrast and exposure boosts surfaces word-level boxes, ready for matching.',
+      'WebAssembly powered Tesseract.js with optional contrast and exposure boosts surfaces word level boxes ready for matching.',
     icon: <ShieldCheck className="h-5 w-5" />,
   },
   {
-    title: 'Smart Matching & Filling',
+    title: 'Smart matching and filling.',
     description:
-      'Multi-factor similarity scores decide which fields autofill automatically and which go to review, respecting password and file safety.',
+      'Multi factor similarity scores decide which fields autofill automatically and which ones move into review while still respecting password and file safety.',
     icon: <Workflow className="h-5 w-5" />,
   },
   {
-    title: 'Macro Studio (Power User Mode)',
+    title: 'Macro Studio for power users.',
     description:
-      'Train reusable macros with region selectors, color filters, and versioned histories—execution reruns OCR on cropped regions for precision.',
+      'Train reusable macros with region selectors, color filters, and versioned histories. Execution reruns OCR on cropped regions for precision.',
     icon: <ArrowDownRight className="h-5 w-5 rotate-90" />,
   },
   {
-    title: 'Privacy & Trust',
+    title: 'Privacy and trust.',
     description:
-      'No network calls, strict CSP, and rules stored only in chrome.storage.local. Analytics are opt-in only.',
+      'No network calls, strict CSP, and rules stored only in chrome.storage.local. Analytics stay opt in and remain off by default.',
     icon: <Lock className="h-5 w-5" />,
   },
 ]
@@ -90,13 +90,13 @@ export default function Home() {
   return (
     <>
       <Helmet>
-        <title>FormMirror — Screenshot → Autofill. Instantly.</title>
+        <title>FormMirror | Screenshot to autofill in seconds.</title>
         <meta
           name="description"
-          content="FormMirror turns completed form screenshots into real keystrokes on any live web form—totally local, private, and framework-safe."
+          content="FormMirror turns a completed form screenshot into real keystrokes on any live web form. Everything runs locally in your browser, so data stays private and framework safe."
         />
         <link rel="canonical" href="https://formmirror.dev" />
-        <meta property="og:title" content="FormMirror — Screenshot → Autofill. Instantly." />
+        <meta property="og:title" content="FormMirror | Screenshot to autofill in seconds." />
         <script type="application/ld+json">{JSON.stringify({
           "@context": "https://schema.org",
           "@type": "SoftwareApplication",
@@ -109,7 +109,7 @@ export default function Home() {
             priceCurrency: "USD",
           },
           description:
-            "FormMirror turns completed form screenshots into real keystrokes on any live web form—totally local, private, and framework-safe.",
+            "FormMirror turns a completed form screenshot into real keystrokes on any live web form. Everything runs locally in your browser, so data stays private and framework safe.",
           url: "https://formmirror.dev",
           creator: {
             "@type": "Organization",
@@ -124,23 +124,23 @@ export default function Home() {
           url: "https://formmirror.dev",
           sameAs: ["https://github.com/ehfuzzz/formmirror-extension"],
           description:
-            "Privacy-first screenshot-to-autofill for teams that care about data sovereignty.",
+            "Privacy first screenshot to autofill for teams that care about data sovereignty.",
         })}</script>
         <meta
           property="og:description"
-          content="FormMirror turns completed form screenshots into real keystrokes on any live web form—totally local, private, and framework-safe."
+          content="FormMirror turns a completed form screenshot into real keystrokes on any live web form. Everything runs locally in your browser, so data stays private and framework safe."
         />
       </Helmet>
       <Section className="pt-24" hasGrid>
         <div className="grid items-center gap-12 lg:grid-cols-2">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wider text-blue-600">Screenshot → Autofill</p>
+            <p className="text-sm font-semibold uppercase tracking-wider text-blue-600">SCREENSHOT TO AUTOFILL</p>
             <h1 className="mt-4 text-4xl font-semibold tracking-tight text-ink sm:text-5xl">
-              Screenshot → Autofill. Instantly.
+              Screenshot to autofill in seconds.
             </h1>
             <p className="mt-6 text-lg text-steel">
-              FormMirror turns a completed form screenshot into real keystrokes on any live web form—totally
-              local, private, and framework-safe.
+              FormMirror turns a completed form screenshot into real keystrokes on any live web form. Everything
+              runs locally in your browser, so data stays private and framework safe.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Button as="a" href={repoUrl} target="_blank" rel="noreferrer">
@@ -157,7 +157,7 @@ export default function Home() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="inline-flex h-2 w-2 rounded-full bg-blue-500" aria-hidden />
-                Framework-safe events
+                Framework safe events
               </div>
             </div>
           </div>
@@ -176,20 +176,20 @@ export default function Home() {
           <div>
             <h2 className="text-3xl font-semibold text-ink">How it works</h2>
             <p className="mt-4 text-base text-steel">
-              Every step respects privacy and accessibility from the start—no servers, no surprises, just
-              OCR-driven intelligence running locally in your browser.
+              Every step respects privacy and accessibility from the start. There are no servers and no surprises,
+              only OCR driven intelligence that runs locally in your browser.
             </p>
             <div className="mt-10">
               <Stepper steps={howItWorks} />
             </div>
           </div>
           <div className="space-y-6 rounded-2xl border border-blue-100 bg-white p-8 shadow-md">
-            <h3 className="text-xl font-semibold text-ink">Operate in five beats</h3>
+            <h3 className="text-xl font-semibold text-ink">Operate in five beats.</h3>
             <ul className="space-y-3 text-sm text-steel">
-              <li>Install &amp; pin FormMirror in Chrome.</li>
+              <li>Install and pin FormMirror in Chrome.</li>
               <li>Open the form you want to mirror.</li>
               <li>Upload or paste your completed form screenshot.</li>
-              <li>Review mid-confidence matches and confirm.</li>
+              <li>Review mid confidence matches and confirm.</li>
               <li>Automate recurring work with Macro Studio.</li>
             </ul>
             <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-6 text-sm text-blue-800">
@@ -211,40 +211,6 @@ export default function Home() {
               emphasis="highlight"
             />
           ))}
-        </div>
-      </Section>
-      <Section>
-        <div className="rounded-2xl border border-blue-100 bg-white p-10 shadow-md">
-          <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
-            <div>
-              <h2 className="text-3xl font-semibold text-ink">Designed for trust-forward teams</h2>
-              <p className="mt-4 text-base text-steel">
-                FormMirror keeps data on-device, respects complex accessibility patterns, and fits naturally into
-                your compliance story. No analytics run unless you explicitly opt in.
-              </p>
-              <ul className="mt-6 space-y-3 text-sm text-steel">
-                <li>WCAG-aligned matching that respects accessible names.</li>
-                <li>Strict CSP and offline-first architecture.</li>
-                <li>Local storage in chrome.storage.local, never remote servers.</li>
-              </ul>
-            </div>
-            <div className="space-y-4">
-              <blockquote className="rounded-xl border border-blue-100 bg-blue-50/60 p-6 text-sm text-blue-900">
-                “FormMirror finally lets our operations team trust screenshot handoffs. The review flow makes QA
-                painless and the macro history is gold.”
-                <footer className="mt-4 text-xs font-semibold uppercase tracking-wide text-blue-700">
-                  Director of Operations, Series B fintech
-                </footer>
-              </blockquote>
-              <blockquote className="rounded-xl border border-blue-100 bg-white p-6 text-sm text-steel">
-                “The ability to keep everything on-device means we can roll this out in regulated environments with
-                zero friction.”
-                <footer className="mt-4 text-xs font-semibold uppercase tracking-wide text-ink/70">
-                  Privacy Lead, enterprise healthcare
-                </footer>
-              </blockquote>
-            </div>
-          </div>
         </div>
       </Section>
       <Section background="subtle">
